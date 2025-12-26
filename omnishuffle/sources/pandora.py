@@ -172,6 +172,10 @@ class PandoraSource(MusicSource):
             msg = str(e)
             self.error_message = msg.lower() if msg else "unknown error"
             self.client = None
+        finally:
+            # Clear proxy env vars so they don't affect other sources
+            for var in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
+                os.environ.pop(var, None)
 
     def is_configured(self) -> bool:
         """Check if Pandora is configured."""
