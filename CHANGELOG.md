@@ -1,11 +1,13 @@
 ### Unreleased
 
+* Direct Last.fm scrobbling with pylast (no external dependencies needed)
+* Now playing updates to Last.fm in real-time
+* Love tracks synced to Last.fm
 * Start Tor with US exit nodes for Pandora geo-restriction bypass
-* MPRIS support for Last.fm scrobbling via rescrobbled
-* Fix Pandora API to use iOS partner keys
-* Use sentence case for error messages
+* Fix Pandora proxy for all API calls
+* Show source breakdown in track count
+* EQ-style animation for playing indicator
 * Volume indicator uses dimmer text color
-* Playing indicator now uses EQ-style animation instead of spinner
 
 ### 0.1.0: 2025-12-26
 

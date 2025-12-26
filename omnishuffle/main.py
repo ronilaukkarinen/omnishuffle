@@ -26,6 +26,13 @@ from rich import box
 from omnishuffle.config import load_config, get_config_dir
 from omnishuffle.player import Player, Track
 from omnishuffle.sources import SpotifySource, PandoraSource, YouTubeSource, MusicSource
+from omnishuffle.scrobbler import Scrobbler
+
+try:
+    import pylast
+    PYLAST_AVAILABLE = True
+except ImportError:
+    PYLAST_AVAILABLE = False
 
 
 console = Console()
@@ -68,8 +75,10 @@ class OmniShuffle:
         self.spinner_idx = 0
         self.status_thread: Optional[threading.Thread] = None
         self.status_lock = threading.Lock()
+        self.scrobbler: Optional[Scrobbler] = None
 
         self._init_sources()
+        self._init_scrobbler()
         self._setup_callbacks()
 
     def _get_status_line(self) -> str:
@@ -118,6 +127,13 @@ class OmniShuffle:
             status = self._get_status_line()
             sys.stdout.write(f"\033[2K\r{status}")
             sys.stdout.flush()
+
+            # Check if we should scrobble
+            if self.scrobbler and self.current_track and not self.paused:
+                position = self.player.position
+                if position > 0:
+                    self.scrobbler.check_scrobble(position)
+
             time.sleep(0.1)
 
     def _init_sources(self):
@@ -150,6 +166,29 @@ class OmniShuffle:
             if src.is_configured():
                 self.sources.append(src)
                 console.print("[green]✓[/green] YouTube Music available")
+
+    def _init_scrobbler(self):
+        """Initialize Last.fm scrobbler."""
+        lastfm_config = self.config.get("lastfm", {})
+        api_key = lastfm_config.get("api_key")
+        api_secret = lastfm_config.get("api_secret")
+        username = lastfm_config.get("username")
+        password = lastfm_config.get("password")
+
+        if not all([api_key, api_secret, username, password]):
+            return
+
+        if not PYLAST_AVAILABLE:
+            console.print("[yellow]![/yellow] pylast not installed, scrobbling disabled")
+            return
+
+        password_hash = pylast.md5(password)
+        self.scrobbler = Scrobbler(api_key, api_secret, username, password_hash)
+
+        if self.scrobbler.enabled:
+            console.print("[green]✓[/green] Last.fm scrobbling enabled")
+        else:
+            console.print("[red]✗[/red] Last.fm authentication failed")
 
     def _setup_callbacks(self):
         """Set up player callbacks."""
@@ -215,6 +254,10 @@ class OmniShuffle:
         self.player.play(track)
         self._show_now_playing()
 
+        # Update Last.fm now playing
+        if self.scrobbler:
+            self.scrobbler.now_playing(track)
+
     def _get_source(self, name: str) -> Optional[MusicSource]:
         """Get source by name."""
         for src in self.sources:
@@ -248,11 +291,19 @@ class OmniShuffle:
         if not self.current_track:
             return
 
+        # Love on source service
         source = self._get_source(self.current_track.source)
-        if source and source.love_track(self.current_track):
+        source_loved = source and source.love_track(self.current_track)
+
+        # Love on Last.fm
+        lastfm_loved = False
+        if self.scrobbler:
+            lastfm_loved = self.scrobbler.love_track(self.current_track)
+
+        if source_loved or lastfm_loved:
             console.print("[green]♥ Loved![/green]")
         else:
-            console.print("[yellow]Love not supported for this source[/yellow]")
+            console.print("[yellow]Love not supported[/yellow]")
 
     def ban_current(self):
         """Ban/dislike current track."""
