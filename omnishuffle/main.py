@@ -25,6 +25,7 @@ from rich.spinner import Spinner
 from rich.layout import Layout
 from rich import box
 
+from omnishuffle import __version__
 from omnishuffle.config import load_config, get_config_dir, add_banned, is_banned
 from omnishuffle.player import Player, Track
 from omnishuffle.sources import SpotifySource, PandoraSource, YouTubeSource, MusicSource
@@ -561,7 +562,7 @@ class OmniShuffle:
     def run(self):
         """Main run loop."""
         console.print(Panel.fit(
-            "[bold magenta]OmniShuffle[/bold magenta]\n"
+            f"[bold magenta]OmniShuffle[/bold magenta] [dim]v{__version__}[/dim]\n"
             "Unified music shuffler for Spotify, Pandora & YouTube",
             border_style="magenta"
         ))

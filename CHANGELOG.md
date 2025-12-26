@@ -1,3 +1,7 @@
+### 1.0.2: 2025-12-26
+
+* Show version number in startup box
+
 ### 1.0.1: 2025-12-26
 
 * Truncate status lines to terminal width to prevent display issues
