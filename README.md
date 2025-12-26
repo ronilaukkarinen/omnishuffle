@@ -21,6 +21,7 @@ A unified command-line music shuffler that combines Spotify, Pandora, and YouTub
 
 - Python 3.11+
 - mpv (with libmpv)
+- mpv-mpris (for Last.fm scrobbling)
 - ffmpeg
 - pipx (recommended for installation)
 - Tor (optional, for Pandora outside USA)
@@ -242,7 +243,13 @@ Available modes:
 
 ## Last.fm scrobbling
 
-OmniShuffle uses mpv for playback, which exposes MPRIS metadata. Install [rescrobbled](https://github.com/InputUsername/rescrobbled) to enable automatic scrobbling.
+OmniShuffle uses mpv for playback with the mpv-mpris plugin to expose MPRIS metadata. Combined with [rescrobbled](https://github.com/InputUsername/rescrobbled), all your tracks are automatically scrobbled to Last.fm.
+
+### Installing mpv-mpris
+
+```bash
+sudo pacman -S mpv-mpris
+```
 
 ### Installing rescrobbled
 

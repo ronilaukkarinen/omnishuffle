@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * Automatic Tor startup for Pandora when proxy is configured
+* MPRIS support for Last.fm scrobbling via rescrobbled
+
+### Changed
+
+* Volume indicator uses dimmer text color
+* Playing indicator now uses EQ-style animation instead of spinner
 
 ## [0.1.0] - 2025-12-26
 

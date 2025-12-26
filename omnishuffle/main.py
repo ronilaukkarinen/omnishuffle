@@ -30,8 +30,8 @@ from omnishuffle.sources import SpotifySource, PandoraSource, YouTubeSource, Mus
 
 console = Console()
 
-# Spinner frames for the playing indicator
-SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+# EQ-style animation frames (two bars moving)
+SPINNER_FRAMES = ["▁▃", "▂▅", "▃▇", "▅█", "▇▅", "█▃", "▅▁", "▃▂"]
 
 
 HELP_TEXT = """
@@ -88,6 +88,7 @@ class OmniShuffle:
         reset = "\033[0m"
         bold = "\033[1m"
         dim = "\033[2m"
+        dimmer = "\033[38;2;100;100;100m"  # Dark grey for volume
         white = "\033[97m"
 
         color = colors.get(track.source, white)
@@ -105,7 +106,7 @@ class OmniShuffle:
             f"{bold}{white}{track.title}{reset}"
             f"{dim} - {reset}"
             f"{track.artist}"
-            f"{dim}  vol {self.player.volume}%{reset}"
+            f"{dimmer}  vol {self.player.volume}%{reset}"
         )
 
     def _status_updater(self):
@@ -129,7 +130,7 @@ class OmniShuffle:
                 self.sources.append(src)
                 console.print("[green]✓[/green] Spotify connected")
             else:
-                console.print("[yellow]![/yellow] Spotify not configured")
+                console.print("[red]✗[/red] Spotify not configured")
 
         if "pandora" in enabled:
             console.print("[dim]  Starting Tor for Pandora...[/dim]", end="")
@@ -140,7 +141,7 @@ class OmniShuffle:
                 console.print("[green]✓[/green] Pandora connected (via Tor)")
             else:
                 error = src.error_message or "unknown error"
-                console.print(f"[yellow]![/yellow] Pandora: {error}")
+                console.print(f"[red]✗[/red] Pandora: {error}")
 
         if "youtube" in enabled:
             src = YouTubeSource(self.config.get("youtube", {}))
