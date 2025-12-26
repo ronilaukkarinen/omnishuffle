@@ -50,6 +50,13 @@ class Scrobbler:
         """Check if scrobbling is enabled."""
         return self._enabled and self.network is not None
 
+    def _get_primary_artist(self, artist: str) -> str:
+        """Get primary artist from comma-separated list."""
+        if not artist:
+            return ""
+        # Take only first artist if multiple (e.g., "GUNSHIP, Power Glove" -> "GUNSHIP")
+        return artist.split(',')[0].strip()
+
     def now_playing(self, track: Track) -> bool:
         """Update now playing status on Last.fm."""
         if not self.enabled:
@@ -60,7 +67,7 @@ class Scrobbler:
         self.scrobbled = False
 
         try:
-            artist = track.artist.strip() if track.artist else ""
+            artist = self._get_primary_artist(track.artist)
             title = track.title.strip() if track.title else ""
             album = track.album.strip() if track.album else None
             duration = track.duration if track.duration and track.duration > 0 else None
@@ -119,12 +126,17 @@ class Scrobbler:
 
         track = self.current_track
         timestamp = int(self.track_start_time or time.time())
+        artist = self._get_primary_artist(track.artist)
+        title = track.title.strip() if track.title else ""
+
+        if not artist or not title:
+            return False
 
         try:
             self.network.scrobble(
-                artist=track.artist,
-                title=track.title,
-                album=track.album or None,
+                artist=artist,
+                title=title,
+                album=track.album.strip() if track.album else None,
                 timestamp=timestamp,
             )
             self.scrobbled = True
@@ -139,7 +151,8 @@ class Scrobbler:
             return False
 
         try:
-            lastfm_track = self.network.get_track(track.artist, track.title)
+            artist = self._get_primary_artist(track.artist)
+            lastfm_track = self.network.get_track(artist, track.title)
             lastfm_track.love()
             return True
         except Exception:
@@ -151,7 +164,8 @@ class Scrobbler:
             return False
 
         try:
-            lastfm_track = self.network.get_track(track.artist, track.title)
+            artist = self._get_primary_artist(track.artist)
+            lastfm_track = self.network.get_track(artist, track.title)
             lastfm_track.unlove()
             return True
         except Exception:
@@ -163,7 +177,8 @@ class Scrobbler:
             return []
 
         try:
-            lastfm_track = self.network.get_track(track.artist, track.title)
+            artist = self._get_primary_artist(track.artist)
+            lastfm_track = self.network.get_track(artist, track.title)
             similar = lastfm_track.get_similar(limit=limit)
             return [
                 {"artist": item.item.artist.name, "title": item.item.title}
@@ -205,7 +220,8 @@ class Scrobbler:
             return False
 
         try:
-            lastfm_track = self.network.get_track(track.artist, track.title)
+            artist = self._get_primary_artist(track.artist)
+            lastfm_track = self.network.get_track(artist, track.title)
             return lastfm_track.get_userloved()
         except Exception:
             return False
