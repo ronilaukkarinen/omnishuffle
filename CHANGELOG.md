@@ -2,7 +2,9 @@
 
 * Fix auto-play next track for Pandora/YouTube (loading flag was not cleared)
 * Shuffle Spotify liked songs from random positions in library (not just first 50)
-* Fix scrobbling reliability when pressing n multiple times (non-blocking API calls)
+* Fix now playing updates when pressing n multiple times (3-second delay before API call)
+* Remove YouTube generic fallback that returned unrelated recommendations
+* Fix love message formatting
 
 ### 1.0.2: 2025-12-26
 
