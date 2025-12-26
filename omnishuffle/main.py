@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """OmniShuffle - Unified music shuffler with pianobar-style controls."""
 
+import os
+import shutil
 import sys
 import random
 import threading
@@ -113,12 +115,41 @@ class OmniShuffle:
             return "╺" + "─" * (width - 1)
         return "━" * filled + "╸" + "─" * (width - filled - 1)
 
+    def _strip_ansi(self, text: str) -> str:
+        """Strip ANSI escape codes from text for length calculation."""
+        import re
+        return re.sub(r'\033\[[0-9;]*m', '', text)
+
+    def _truncate_line(self, line: str, max_width: int) -> str:
+        """Truncate a line with ANSI codes to fit max_width visible chars."""
+        visible_len = len(self._strip_ansi(line))
+        if visible_len <= max_width:
+            return line
+        # Need to truncate - remove chars from the end while preserving ANSI
+        import re
+        result = []
+        visible_count = 0
+        i = 0
+        while i < len(line) and visible_count < max_width - 1:
+            if line[i] == '\033':
+                # Find end of ANSI sequence
+                end = line.find('m', i)
+                if end != -1:
+                    result.append(line[i:end+1])
+                    i = end + 1
+                    continue
+            result.append(line[i])
+            visible_count += 1
+            i += 1
+        return ''.join(result) + '\033[0m'
+
     def _get_status_line(self) -> str:
         """Generate the status line with spinner and colors."""
         if not self.current_track:
             return "\033[2m  No track playing\033[0m\n"
 
         track = self.current_track
+        term_width = shutil.get_terminal_size().columns
 
         # ANSI color codes
         colors = {
@@ -170,6 +201,7 @@ class OmniShuffle:
             f"{track.artist}{dim} - {reset}{bold}{white}{track.title}{reset}"
             f"{heart}{scrobbled}{genres}"
         )
+        line1 = self._truncate_line(line1, term_width)
 
         # Line 2: Progress
         line2 = (
@@ -178,6 +210,7 @@ class OmniShuffle:
         if quality:
             line2 += f"  {quality}"
         line2 += f"  {dim}vol {self.player.volume}%{reset}"
+        line2 = self._truncate_line(line2, term_width)
 
         return f"{line1}\n{line2}"
 
