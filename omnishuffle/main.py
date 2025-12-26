@@ -23,7 +23,7 @@ from rich.spinner import Spinner
 from rich.layout import Layout
 from rich import box
 
-from omnishuffle.config import load_config, get_config_dir
+from omnishuffle.config import load_config, get_config_dir, add_banned, is_banned
 from omnishuffle.player import Player, Track
 from omnishuffle.sources import SpotifySource, PandoraSource, YouTubeSource, MusicSource
 from omnishuffle.scrobbler import Scrobbler
@@ -48,8 +48,8 @@ HELP_TEXT = """
 [magenta]+[/magenta]  Love track          [magenta]-[/magenta]  Ban track (Pandora)
 [magenta]([/magenta]  Volume down         [magenta])[/magenta]  Volume up
 [magenta]s[/magenta]  Switch station      [magenta]S[/magenta]  Shuffle sources
-[magenta]i[/magenta]  Track info          [magenta]h[/magenta]  Show help
-[magenta]q[/magenta]  Quit
+[magenta]l[/magenta]  Refresh Last.fm     [magenta]i[/magenta]  Track info
+[magenta]h[/magenta]  Show help           [magenta]q[/magenta]  Quit
 """
 
 # Brand colors for services
@@ -76,65 +76,150 @@ class OmniShuffle:
         self.status_thread: Optional[threading.Thread] = None
         self.status_lock = threading.Lock()
         self.scrobbler: Optional[Scrobbler] = None
+        self.current_genres: List[str] = []
+        self.current_loved: bool = False
+        self.current_scrobbled: bool = False  # Track if current song was scrobbled
+        self._playing_next = False  # Guard against concurrent play_next calls
+        self._current_position: float = 0.0  # Updated by player callback
+        self._status_first_print = True  # Reset on track change
 
         self._init_sources()
         self._init_scrobbler()
         self._setup_callbacks()
 
+    def _clear_status(self):
+        """Clear the status lines and reset for fresh print."""
+        # Clear current line and line above (2-line status)
+        sys.stdout.write("\033[2K\033[A\033[2K\r")
+        sys.stdout.flush()
+        self._status_first_print = True
+
+    def _format_time(self, seconds: float) -> str:
+        """Format seconds as M:SS."""
+        mins = int(seconds) // 60
+        secs = int(seconds) % 60
+        return f"{mins}:{secs:02d}"
+
+    def _get_progress_bar(self, position: float, duration: float, width: int = 24) -> str:
+        """Generate a thin modern progress bar."""
+        if duration <= 0:
+            return "─" * width
+        ratio = min(position / duration, 1.0)
+        filled = int(width * ratio)
+        # Thin line style: ━ (filled) ╸ (position) ─ (empty)
+        if filled >= width:
+            return "━" * width
+        if filled == 0:
+            return "╺" + "─" * (width - 1)
+        return "━" * filled + "╸" + "─" * (width - filled - 1)
+
     def _get_status_line(self) -> str:
-        """Generate the status line with spinner as plain string with ANSI colors."""
+        """Generate the status line with spinner and colors."""
         if not self.current_track:
-            return "\033[2m  No track playing\033[0m"
+            return "\033[2m  No track playing\033[0m\n"
 
         track = self.current_track
 
-        # ANSI color codes for brand colors
+        # ANSI color codes
         colors = {
-            "spotify": "\033[38;2;29;185;84m",   # #1DB954
-            "pandora": "\033[38;2;54;104;255m",  # #3668FF
-            "youtube": "\033[38;2;255;0;0m",     # #FF0000
+            "spotify": "\033[38;2;29;185;84m",   # Green
+            "pandora": "\033[38;2;54;104;255m",  # Blue
+            "youtube": "\033[38;2;255;0;0m",     # Red
         }
         reset = "\033[0m"
         bold = "\033[1m"
         dim = "\033[2m"
-        dimmer = "\033[38;2;100;100;100m"  # Dark grey for volume
         white = "\033[97m"
 
         color = colors.get(track.source, white)
 
-        # Get spinner frame
+        # Spinner
         if self.paused:
             spinner = "⏸"
         else:
             spinner = SPINNER_FRAMES[self.spinner_idx % len(SPINNER_FRAMES)]
 
-        # Build status line
-        return (
+        # Time - use stored position from observer
+        position = self._current_position
+        duration = track.duration or 0
+        progress_bar = self._get_progress_bar(position, duration)
+        time_current = self._format_time(position)
+        time_total = self._format_time(duration)
+
+        # Quality info
+        bitrate = self.player.audio_bitrate
+        codec = self.player.audio_codec
+        if self.player.is_spotify_direct:
+            quality = f"{bitrate}kbps {codec} ⚡"
+        elif bitrate and codec:
+            quality = f"{bitrate}kbps {codec}"
+        else:
+            quality = ""
+
+        # Icons
+        heart = " \033[91m♥\033[0m" if self.current_loved else ""
+        scrobbled = " \033[32m✓\033[0m" if self.current_scrobbled else ""
+
+        # Genres
+        genres = f"  \033[38;2;140;140;140m({', '.join(self.current_genres[:2])}){reset}" if self.current_genres else ""
+
+        # Line 1: Track info
+        line1 = (
             f"{bold}{color}{spinner}{reset} "
             f"{color}[{track.source.upper()}]{reset} "
-            f"{bold}{white}{track.title}{reset}"
-            f"{dim} - {reset}"
-            f"{track.artist}"
-            f"{dimmer}  vol {self.player.volume}%{reset}"
+            f"{track.artist}{dim} - {reset}{bold}{white}{track.title}{reset}"
+            f"{heart}{scrobbled}{genres}"
         )
 
-    def _status_updater(self):
-        """Background thread to update spinner."""
-        while self.running:
-            with self.status_lock:
-                self.spinner_idx += 1
-            # Clear line and print status
-            status = self._get_status_line()
-            sys.stdout.write(f"\033[2K\r{status}")
-            sys.stdout.flush()
+        # Line 2: Progress
+        line2 = (
+            f"{color}{progress_bar}{reset} {white}{time_current}{dim}/{time_total}{reset}"
+        )
+        if quality:
+            line2 += f"  {quality}"
+        line2 += f"  {dim}vol {self.player.volume}%{reset}"
 
-            # Check if we should scrobble
-            if self.scrobbler and self.current_track and not self.paused:
-                position = self.player.position
-                if position > 0:
-                    self.scrobbler.check_scrobble(position)
+        return f"{line1}\n{line2}"
+
+    def _status_updater(self):
+        """Background thread to update status line."""
+        while self.running:
+            self.spinner_idx += 1
+
+            if self.current_track:
+                # Update position from player
+                self._current_position = self.player.position
+
+                status = self._get_status_line()
+
+                # Move to start, clear line, print line1, newline, clear line, print line2
+                if not self._status_first_print:
+                    sys.stdout.write("\033[A")  # Move up 1 line
+                sys.stdout.write(f"\r\033[K{status}\033[K")
+                sys.stdout.flush()
+                self._status_first_print = False
+
+            # Check for Spotify Connect track end (local timer doesn't know when track ends)
+            if self.current_track and self.player.is_spotify_connect and not self.paused:
+                if self._current_position >= self.current_track.duration - 1:
+                    self._on_track_end()
+                    continue
+
+            # Scrobble check
+            if self.scrobbler and self.scrobbler.enabled and self.current_track and not self.paused:
+                pos = self._current_position
+                dur = self.current_track.duration
+                if pos > 0:
+                    self.scrobbler.check_scrobble(pos, dur)
+                    if self.scrobbler.scrobbled and not self.current_scrobbled:
+                        self.current_scrobbled = True
 
             time.sleep(0.1)
+
+    def _prompt_spotify_activation(self, src):
+        """Prompt user to activate Spotify Connect device."""
+        console.print("[yellow]![/yellow] Spotify: Open phone → Spotify → Devices → Select 'OmniShuffle'")
+        # Don't wait - continue with other sources, Spotify tracks will be skipped
 
     def _init_sources(self):
         """Initialize enabled music sources."""
@@ -144,7 +229,17 @@ class OmniShuffle:
             src = SpotifySource(self.config.get("spotify", {}))
             if src.is_configured():
                 self.sources.append(src)
-                console.print("[green]✓[/green] Spotify connected")
+                # Set up Spotify source for player
+                self.player.set_spotify_source(src)
+                # Check streaming method
+                if src.has_direct_streaming:
+                    console.print("[green]✓[/green] Spotify connected (320kbps via librespot)")
+                else:
+                    device = src.get_connect_device()
+                    if device:
+                        console.print(f"[green]✓[/green] Spotify connected (320kbps via {device.get('name', 'Connect')})")
+                    else:
+                        console.print("[green]✓[/green] Spotify connected (via YouTube)")
             else:
                 console.print("[red]✗[/red] Spotify not configured")
 
@@ -188,7 +283,8 @@ class OmniShuffle:
         if self.scrobbler.enabled:
             console.print("[green]✓[/green] Last.fm scrobbling enabled")
         else:
-            console.print("[red]✗[/red] Last.fm authentication failed")
+            error = getattr(self.scrobbler, '_last_error', 'unknown error')
+            console.print(f"[red]✗[/red] Last.fm: {error}")
 
     def _setup_callbacks(self):
         """Set up player callbacks."""
@@ -198,33 +294,64 @@ class OmniShuffle:
         """Called when current track ends."""
         self.play_next()
 
+    def _loading_status(self, msg: str):
+        """Show loading status on single line."""
+        sys.stdout.write(f"\r\033[2K\033[33m→\033[0m {msg}")
+        sys.stdout.flush()
+
     def load_queue(self, mode: str = "shuffle", seed: Optional[str] = None):
-        """Load tracks into queue from all sources."""
+        """Load tracks into queue from all sources.
+
+        Fast loading: Gets tracks directly from Spotify likes and Pandora radio.
+        No slow YouTube searches. Press 'l' to manually add Last.fm recommendations.
+        """
         self.queue = []
         source_counts = {}
 
+        # Load from Spotify and Pandora (fast, direct API calls)
         for source in self.sources:
             try:
-                if mode == "radio":
-                    tracks = source.get_radio_tracks(seed)
-                else:
-                    # Get from playlists
-                    playlists = source.get_playlists()
-                    if playlists:
-                        # Pick random playlist
-                        playlist = random.choice(playlists)
-                        tracks = source.get_tracks_from_playlist(playlist["id"])
-                    else:
-                        tracks = source.get_radio_tracks()
+                self._loading_status(f"Loading {source.name.capitalize()} tracks...")
 
+                if source.name == "spotify":
+                    # Get liked songs directly (fast)
+                    tracks = source.get_liked_tracks(limit=50)
+                    if not tracks:
+                        # Fallback to playlists
+                        playlists = source.get_playlists()
+                        if playlists:
+                            playlist = random.choice(playlists)
+                            tracks = source.get_tracks_from_playlist(playlist["id"])
+                elif source.name == "pandora":
+                    # Get radio tracks from QuickMix
+                    tracks = source.get_radio_tracks(seed)
+                elif source.name == "youtube":
+                    # Use a seed from Spotify to get relevant recommendations
+                    spotify_src = self._get_source("spotify")
+                    if spotify_src:
+                        liked = spotify_src.get_liked_tracks(limit=10)
+                        if liked:
+                            seed_track = random.choice(liked)
+                            seed = f"{seed_track.artist} {seed_track.title}"
+                            tracks = source.get_radio_tracks(seed)
+                    if not tracks:
+                        continue
+                else:
+                    tracks = source.get_radio_tracks(seed)
+
+                # Filter out banned tracks
+                tracks = [t for t in tracks if not is_banned(t.artist, t.title)]
                 self.queue.extend(tracks)
                 source_counts[source.name] = len(tracks)
             except Exception as e:
-                console.print(f"[red]Error loading from {source.name}: {e}[/red]")
+                console.print(f"\n[red]Error loading from {source.name}: {e}[/red]")
+
+        # Clear loading message
+        sys.stdout.write("\r\033[2K")
+        sys.stdout.flush()
 
         if self.queue:
             random.shuffle(self.queue)
-            # Build source breakdown string
             breakdown = ", ".join(f"{name}: {count}" for name, count in source_counts.items())
             console.print(f"[green]Loaded {len(self.queue)} tracks ({breakdown})[/green]")
         else:
@@ -232,31 +359,72 @@ class OmniShuffle:
 
     def play_next(self):
         """Play next track in queue."""
-        if self.current_track:
-            self.history.append(self.current_track)
-
-        if not self.queue:
-            # Refill queue
-            self.load_queue()
-
-        if not self.queue:
-            console.print("[red]Queue empty, nothing to play[/red]")
+        if self._playing_next:
             return
+        self._playing_next = True
 
-        track = self.queue.pop(0)
-        self.current_track = track
+        try:
+            if self.current_track:
+                self.history.append(self.current_track)
 
-        # Get stream URL
-        source = self._get_source(track.source)
-        if source:
-            track.url = source.get_stream_url(track)
+            if not self.queue:
+                self.load_queue()
 
-        self.player.play(track)
-        self._show_now_playing()
+            self._refill_pandora_if_needed()
 
-        # Update Last.fm now playing
-        if self.scrobbler:
-            self.scrobbler.now_playing(track)
+            if not self.queue:
+                console.print("[red]Queue empty, nothing to play[/red]")
+                return
+
+            track = self.queue.pop(0)
+
+            source = self._get_source(track.source)
+            if source:
+                track.url = source.get_stream_url(track)
+
+            self.player.play(track)
+            self.current_track = track
+            self.current_genres = []
+            self.current_loved = False
+            self.current_scrobbled = False
+            self._current_position = 0.0
+            # Clear old status and reset for fresh print
+            if not self._status_first_print:
+                sys.stdout.write("\033[2K\033[A\033[2K\r")
+                sys.stdout.flush()
+            self._status_first_print = True
+
+            if self.scrobbler and self.scrobbler.enabled:
+                self.scrobbler.now_playing(track)
+                def fetch_track_info():
+                    self.current_genres = self.scrobbler.get_track_tags(track)
+                    self.current_loved = self.scrobbler.is_loved(track)
+                threading.Thread(target=fetch_track_info, daemon=True).start()
+
+            # Clear display for fresh status
+            sys.stdout.write("\r\033[K\n\033[K\033[A")
+            sys.stdout.flush()
+        finally:
+            self._playing_next = False
+
+    def _refill_pandora_if_needed(self):
+        """Fetch more Pandora tracks when queue is running low."""
+        pandora_in_queue = sum(1 for t in self.queue if t.source == "pandora")
+        if pandora_in_queue < 3:
+            pandora_src = self._get_source("pandora")
+            if pandora_src:
+                # Fetch in background to not block
+                def fetch():
+                    try:
+                        new_tracks = pandora_src.get_radio_tracks()
+                        if new_tracks:
+                            # Insert randomly into queue
+                            for track in new_tracks:
+                                pos = random.randint(0, max(1, len(self.queue)))
+                                self.queue.insert(pos, track)
+                    except Exception:
+                        pass
+                threading.Thread(target=fetch, daemon=True).start()
 
     def _get_source(self, name: str) -> Optional[MusicSource]:
         """Get source by name."""
@@ -265,71 +433,62 @@ class OmniShuffle:
                 return src
         return None
 
-    def _show_now_playing(self):
-        """Display current track info."""
-        if not self.current_track:
-            return
-
-        track = self.current_track
-        source_colors = {
-            "spotify": "green",
-            "pandora": "blue",
-            "youtube": "red",
-        }
-        color = source_colors.get(track.source, "white")
-
-        console.print()
-        console.print(f"[{color}]▶ {track.source.upper()}[/{color}]")
-        console.print(f"[bold white]{track.title}[/bold white]")
-        console.print(f"[cyan]{track.artist}[/cyan]")
-        if track.album:
-            console.print(f"[dim]{track.album}[/dim]")
-        console.print()
-
     def love_current(self):
         """Love/like current track."""
         if not self.current_track:
             return
 
+        self._clear_status()
+
+        loved_on = []
+
         # Love on source service
         source = self._get_source(self.current_track.source)
-        source_loved = source and source.love_track(self.current_track)
+        if source and source.love_track(self.current_track):
+            loved_on.append(self.current_track.source.capitalize())
 
         # Love on Last.fm
-        lastfm_loved = False
-        if self.scrobbler:
-            lastfm_loved = self.scrobbler.love_track(self.current_track)
+        if self.scrobbler and self.scrobbler.love_track(self.current_track):
+            loved_on.append("Last.fm")
 
-        if source_loved or lastfm_loved:
-            console.print("[green]♥ Loved![/green]")
+        if loved_on:
+            services = ", ".join(loved_on)
+            console.print(f"[red]♥[/red] [green]Loved on {services}[/green]")
+            console.print()
         else:
-            console.print("[yellow]Love not supported[/yellow]")
+            console.print("[yellow]Love failed[/yellow]")
+            console.print()
 
     def ban_current(self):
         """Ban/dislike current track."""
         if not self.current_track:
             return
 
+        self._clear_status()
+
+        # Always save to local ban list
+        add_banned(self.current_track.artist, self.current_track.title)
+
+        # Also try to ban on source (e.g., Pandora thumbs down)
         source = self._get_source(self.current_track.source)
-        if source and source.ban_track(self.current_track):
-            console.print("[red]✗ Banned![/red]")
-            self.play_next()
-        else:
-            console.print("[yellow]Ban not supported for this source[/yellow]")
+        if source:
+            source.ban_track(self.current_track)
+
+        console.print(f"[red]✗ Banned:[/red] {self.current_track.artist} - {self.current_track.title}")
+        console.print()
+        self.play_next()
 
     def toggle_pause(self):
         """Toggle pause state."""
         self.player.pause()
         self.paused = self.player.paused
-        if self.paused:
-            console.print("[yellow]⏸ Paused[/yellow]")
-        else:
-            console.print("[green]▶ Playing[/green]")
 
     def show_info(self):
         """Show detailed track info."""
+        self._clear_status()
         if not self.current_track:
             console.print("[yellow]No track playing[/yellow]")
+            console.print()
             return
 
         track = self.current_track
@@ -343,12 +502,20 @@ class OmniShuffle:
         table.add_row("Source", track.source.capitalize())
         table.add_row("Duration", f"{track.duration // 60}:{track.duration % 60:02d}")
         table.add_row("Queue", f"{len(self.queue)} tracks remaining")
+        if self.current_genres:
+            table.add_row("Genres", ", ".join(self.current_genres))
+        # Audio quality
+        if self.player.audio_bitrate:
+            table.add_row("Quality", f"{self.player.audio_bitrate}kbps {self.player.audio_codec}")
 
         console.print(table)
+        console.print()
 
     def show_help(self):
         """Show help."""
+        self._clear_status()
         console.print(Panel(HELP_TEXT, title="Help", border_style="magenta"))
+        console.print()
 
     def _print_status(self):
         """Print the current status line."""
@@ -382,7 +549,7 @@ class OmniShuffle:
         self.play_next()
 
         console.print("[dim]Press 'h' for help, 'q' to quit[/dim]")
-        console.print()
+        print()  # Empty line for status display
 
         # Start status updater thread
         self.status_thread = threading.Thread(target=self._status_updater, daemon=True)
@@ -395,13 +562,9 @@ class OmniShuffle:
                 except KeyboardInterrupt:
                     break
 
-                # Clear status line before printing anything
-                sys.stdout.write("\033[2K\r")
-
                 if key == 'q':
                     self.running = False
                 elif key == 'n':
-                    console.print("[dim]Skipping...[/dim]")
                     self.play_next()
                 elif key == 'p' or key == ' ':
                     self.toggle_pause()
@@ -414,19 +577,30 @@ class OmniShuffle:
                 elif key == ')':
                     self.player.volume_up()
                 elif key == 'i':
-                    console.print()  # New line before info
                     self.show_info()
                 elif key == 'h' or key == '?':
-                    console.print()  # New line before help
                     self.show_help()
                 elif key == 'S':
+                    self._clear_status()
                     random.shuffle(self.queue)
                     console.print("[green]Queue shuffled![/green]")
+                    console.print()
+                elif key == 'l':
+                    self._clear_status()
+                    if self.scrobbler and self.scrobbler.enabled:
+                        console.print("[dim]Loading Last.fm recommendations...[/dim]")
+                        console.print()
+                        self.load_queue("lastfm")
+                        if self.queue:
+                            self.play_next()
+                    else:
+                        console.print("[yellow]Last.fm not configured[/yellow]")
+                        console.print()
 
         finally:
             self.running = False
             self.player.shutdown()
-            sys.stdout.write("\033[2K\r")  # Clear status line
+            self._clear_status()
             console.print("[magenta]Goodbye![/magenta]")
 
 
