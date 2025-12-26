@@ -30,8 +30,8 @@ from omnishuffle.sources import SpotifySource, PandoraSource, YouTubeSource, Mus
 
 console = Console()
 
-# EQ-style animation frames (two bars moving)
-SPINNER_FRAMES = ["▁▃", "▂▅", "▃▇", "▅█", "▇▅", "█▃", "▅▁", "▃▂"]
+# EQ-style animation frames (two vertical bars with space)
+SPINNER_FRAMES = ["▁ ▃", "▃ ▅", "▅ ▇", "▇ ▅", "▅ ▃", "▃ ▁", "▂ ▆", "▆ ▂"]
 
 
 HELP_TEXT = """

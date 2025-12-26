@@ -1,6 +1,6 @@
 ### Unreleased
 
-* Automatic Tor startup for Pandora when proxy is configured
+* Start Tor via systemctl for proper permissions
 * MPRIS support for Last.fm scrobbling via rescrobbled
 * Fix Pandora API to use new pydora clientbuilder
 * Volume indicator uses dimmer text color

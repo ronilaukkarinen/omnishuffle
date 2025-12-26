@@ -59,14 +59,13 @@ class PandoraSource(MusicSource):
             return True
 
         try:
-            # Try to start Tor
-            cls._tor_process = subprocess.Popen(
-                ['tor'],
+            # Try to start Tor via systemctl (handles permissions properly)
+            subprocess.run(
+                ['sudo', 'systemctl', 'start', 'tor'],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                timeout=10,
             )
-            # Register cleanup
-            atexit.register(cls._stop_tor)
 
             # Wait for Tor to start (up to 30 seconds)
             for _ in range(30):
@@ -79,13 +78,6 @@ class PandoraSource(MusicSource):
             return False
         except Exception:
             return False
-
-    @classmethod
-    def _stop_tor(cls):
-        """Stop Tor daemon if we started it."""
-        if cls._tor_process:
-            cls._tor_process.terminate()
-            cls._tor_process = None
 
     def _init_client(self):
         """Initialize Pandora client with optional proxy."""
