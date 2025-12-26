@@ -1,6 +1,10 @@
 """Pandora music source using pydora with Tor proxy support."""
 
 import os
+import socket
+import subprocess
+import time
+import atexit
 from typing import List, Optional
 
 from omnishuffle.player import Track
@@ -18,17 +22,67 @@ class PandoraSource(MusicSource):
     """Pandora source with Tor/SOCKS5 proxy support."""
 
     name = "pandora"
+    _tor_process: Optional[subprocess.Popen] = None
 
     def __init__(self, config: dict):
         self.config = config
         self.client: Optional[Pandora] = None
         self.stations: List[dict] = []
         self.current_station = None
+        self.error_message: Optional[str] = None
         self._init_client()
+
+    @classmethod
+    def _is_tor_running(cls, port: int = 9050) -> bool:
+        """Check if Tor is running on the specified port."""
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex(('127.0.0.1', port))
+            sock.close()
+            return result == 0
+        except Exception:
+            return False
+
+    @classmethod
+    def _start_tor(cls) -> bool:
+        """Start Tor daemon if not running."""
+        if cls._is_tor_running():
+            return True
+
+        try:
+            # Try to start Tor
+            cls._tor_process = subprocess.Popen(
+                ['tor'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            # Register cleanup
+            atexit.register(cls._stop_tor)
+
+            # Wait for Tor to start (up to 30 seconds)
+            for _ in range(30):
+                if cls._is_tor_running():
+                    return True
+                time.sleep(1)
+
+            return False
+        except FileNotFoundError:
+            return False
+        except Exception:
+            return False
+
+    @classmethod
+    def _stop_tor(cls):
+        """Stop Tor daemon if we started it."""
+        if cls._tor_process:
+            cls._tor_process.terminate()
+            cls._tor_process = None
 
     def _init_client(self):
         """Initialize Pandora client with optional proxy."""
         if not PYDORA_AVAILABLE:
+            self.error_message = "pydora not installed"
             return
 
         email = self.config.get("email") or os.getenv("PANDORA_EMAIL")
@@ -36,17 +90,26 @@ class PandoraSource(MusicSource):
         proxy = self.config.get("proxy")  # e.g., "socks5://127.0.0.1:9050"
 
         if not email or not password:
+            self.error_message = "email/password not set"
             return
 
         try:
-            # Set up proxy if configured (for Tor)
+            # Start Tor if proxy is configured
+            if proxy and "9050" in proxy:
+                if not self._start_tor():
+                    self.error_message = "could not start Tor"
+                    return
+
+            # Set up proxy if configured
             if proxy:
                 os.environ["HTTP_PROXY"] = proxy
                 os.environ["HTTPS_PROXY"] = proxy
+                os.environ["ALL_PROXY"] = proxy
 
             self.client = Pandora()
             self.client.login(email, password)
-        except Exception:
+        except Exception as e:
+            self.error_message = str(e)
             self.client = None
 
     def is_configured(self) -> bool:

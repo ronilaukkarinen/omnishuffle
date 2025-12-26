@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+* Automatic Tor startup for Pandora when proxy is configured
+
 ## [0.1.0] - 2025-12-26
 
 ### Added

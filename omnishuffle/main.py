@@ -132,12 +132,15 @@ class OmniShuffle:
                 console.print("[yellow]![/yellow] Spotify not configured")
 
         if "pandora" in enabled:
+            console.print("[dim]  Starting Tor for Pandora...[/dim]", end="")
             src = PandoraSource(self.config.get("pandora", {}))
+            console.print("\r\033[2K", end="")  # Clear the line
             if src.is_configured():
                 self.sources.append(src)
-                console.print("[green]✓[/green] Pandora connected")
+                console.print("[green]✓[/green] Pandora connected (via Tor)")
             else:
-                console.print("[yellow]![/yellow] Pandora not configured")
+                error = src.error_message or "unknown error"
+                console.print(f"[yellow]![/yellow] Pandora: {error}")
 
         if "youtube" in enabled:
             src = YouTubeSource(self.config.get("youtube", {}))
