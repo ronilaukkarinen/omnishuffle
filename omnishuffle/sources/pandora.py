@@ -29,13 +29,13 @@ try:
 except ImportError:
     PYDORA_AVAILABLE = False
 
-# Partner keys for Pandora API (iOS keys - more reliable)
+# Partner keys for Pandora API (Android keys from pianobar)
 PANDORA_PARTNER = {
-    "DECRYPTION_KEY": "20zE1E47BE57$51",
-    "ENCRYPTION_KEY": "721^702xC5+E",
-    "PARTNER_USER": "iphone",
-    "PARTNER_PASSWORD": "P2E4FC0EAD3*878N92B2CDp34I0B1@388137C",
-    "DEVICE": "IP01",
+    "DECRYPTION_KEY": "R=U!LH$O2B#",
+    "ENCRYPTION_KEY": "6#26FRL$ZWD",
+    "PARTNER_USER": "android",
+    "PARTNER_PASSWORD": "AC7IBG09A3DTSYM4R41UJWL07VLN8JI7",
+    "DEVICE": "android-generic",
 }
 
 
@@ -170,7 +170,7 @@ class PandoraSource(MusicSource):
         except Exception as e:
             # Use sentence case for error messages
             msg = str(e)
-            self.error_message = msg[0].lower() + msg[1:] if msg else "unknown error"
+            self.error_message = msg.lower() if msg else "unknown error"
             self.client = None
 
     def is_configured(self) -> bool:
