@@ -212,7 +212,8 @@ class PandoraSource(MusicSource):
                 for s in stations
             ]
             return self.stations
-        except Exception:
+        except Exception as e:
+            print(f"[DEBUG] get_playlists error: {e}")
             return []
         finally:
             self._clear_proxy()
@@ -263,7 +264,8 @@ class PandoraSource(MusicSource):
                 )
                 tracks.append(track)
             return tracks
-        except Exception:
+        except Exception as e:
+            print(f"[DEBUG] get_radio_tracks error: {e}")
             return []
         finally:
             self._clear_proxy()

@@ -110,7 +110,7 @@ class OmniShuffle:
 
         # Build status line
         return (
-            f" {bold}{color}{spinner}{reset} "
+            f"{bold}{color}{spinner}{reset} "
             f"{color}[{track.source.upper()}]{reset} "
             f"{bold}{white}{track.title}{reset}"
             f"{dim} - {reset}"
