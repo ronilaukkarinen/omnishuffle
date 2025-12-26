@@ -82,6 +82,7 @@ class OmniShuffle:
         self.current_genres: List[str] = []
         self.current_loved: bool = False
         self.current_scrobbled: bool = False  # Track if current song was scrobbled
+        self.current_stats: dict = {}  # release_year, play_count, first_play
         self._playing_next = False  # Guard against concurrent play_next calls
         self._current_position: float = 0.0  # Updated by player callback
         self._status_first_print = True  # Reset on track change
@@ -92,7 +93,6 @@ class OmniShuffle:
 
     def _clear_status(self):
         """Clear the status lines and reset for fresh print."""
-        # Clear current line and line above (2-line status)
         sys.stdout.write("\033[2K\033[A\033[2K\r")
         sys.stdout.flush()
         self._status_first_print = True
@@ -190,17 +190,23 @@ class OmniShuffle:
 
         # Icons
         heart = " \033[91m♥\033[0m" if self.current_loved else ""
-        scrobbled = " \033[32m✓\033[0m" if self.current_scrobbled else ""
+        scrobbled = "\033[32m✓\033[0m" if self.current_scrobbled else ""
 
-        # Genres
-        genres = f"  \033[38;2;140;140;140m({', '.join(self.current_genres[:2])}){reset}" if self.current_genres else ""
+        # Genres and play count
+        genre_color = "\033[38;2;140;140;140m"
+        extras = ""
+        if self.current_genres:
+            extras += f" {genre_color}({', '.join(self.current_genres[:2])}){reset}"
+        if self.current_stats.get("play_count"):
+            plays = self.current_stats["play_count"]
+            extras += f" {genre_color}{plays} play{'s' if plays != 1 else ''}{reset}"
 
         # Line 1: Track info
         line1 = (
             f"{bold}{color}{spinner}{reset} "
             f"{color}[{track.source.upper()}]{reset} "
             f"{track.artist}{dim} - {reset}{bold}{white}{track.title}{reset}"
-            f"{heart}{scrobbled}{genres}"
+            f"{heart}{scrobbled}{extras}"
         )
         line1 = self._truncate_line(line1, term_width)
 
@@ -226,7 +232,7 @@ class OmniShuffle:
 
                 status = self._get_status_line()
 
-                # Move to start, clear line, print line1, newline, clear line, print line2
+                # Move to start, clear lines, print status
                 if not self._status_first_print:
                     sys.stdout.write("\033[A")  # Move up 1 line
                 sys.stdout.write(f"\r\033[K{status}\033[K")
@@ -422,6 +428,7 @@ class OmniShuffle:
             self.current_genres = []
             self.current_loved = False
             self.current_scrobbled = False
+            self.current_stats = {}
             self._current_position = 0.0
             # Clear old status and reset for fresh print
             if not self._status_first_print:
@@ -444,6 +451,7 @@ class OmniShuffle:
                         self.scrobbler.now_playing(track)
                         self.current_genres = self.scrobbler.get_track_tags(track)
                         self.current_loved = self.scrobbler.is_loved(track)
+                        self.current_stats = self.scrobbler.get_track_stats(track)
                 threading.Thread(target=update_lastfm, daemon=True).start()
 
             # Clear display for fresh status

@@ -2,6 +2,7 @@
 
 import time
 import threading
+from datetime import datetime
 from typing import Optional
 
 try:
@@ -9,6 +10,12 @@ try:
     PYLAST_AVAILABLE = True
 except ImportError:
     PYLAST_AVAILABLE = False
+
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
 
 from omnishuffle.player import Track
 
@@ -307,3 +314,55 @@ class Scrobbler:
                     pass
 
         return recommendations[:limit]
+
+    def get_track_stats(self, track: Track) -> dict:
+        """Get track stats: release date, play count, first play date."""
+        stats = {"release_date": None, "play_count": 0, "first_play": None}
+
+        if not self.enabled or not track:
+            return stats
+
+        artist = self._get_primary_artist(track.artist)
+        title = track.title.strip() if track.title else ""
+
+        if not artist or not title:
+            return stats
+
+        try:
+            # Get play count from Last.fm
+            lastfm_track = self.network.get_track(artist, title)
+            stats["play_count"] = lastfm_track.get_userplaycount() or 0
+
+            # Get first play date from scrobble history
+            user = self.network.get_user(self.network.username)
+            scrobbles = list(user.get_track_scrobbles(artist, title))
+            if scrobbles:
+                first = scrobbles[-1]  # Last in list = oldest
+                if first.timestamp:
+                    date = datetime.fromtimestamp(int(first.timestamp))
+                    stats["first_play"] = date.strftime("%d.%m.%Y")
+        except Exception:
+            pass
+
+        # Get release date from MusicBrainz
+        if REQUESTS_AVAILABLE:
+            try:
+                headers = {"User-Agent": "OmniShuffle/1.0"}
+                url = f"https://musicbrainz.org/ws/2/recording?query=artist:{artist}+recording:{title}&limit=1&fmt=json"
+                r = requests.get(url, headers=headers, timeout=5)
+                data = r.json()
+                if data.get("recordings"):
+                    release_date = data["recordings"][0].get("first-release-date", "")
+                    if release_date:
+                        # Convert to dd.mm.yyyy format
+                        parts = release_date.split("-")
+                        if len(parts) == 3:
+                            stats["release_date"] = f"{parts[2]}.{parts[1]}.{parts[0]}"
+                        elif len(parts) == 2:
+                            stats["release_date"] = f"{parts[1]}.{parts[0]}"
+                        else:
+                            stats["release_date"] = parts[0]  # Just year
+            except Exception:
+                pass
+
+        return stats

@@ -1,3 +1,8 @@
+### 1.0.4: 2025-12-26
+
+* Show play count from Last.fm after genres (x plays)
+* Fix double space before genre tags
+
 ### 1.0.3: 2025-12-26
 
 * Fix auto-play next track for Pandora/YouTube (loading flag was not cleared)
