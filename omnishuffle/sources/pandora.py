@@ -103,8 +103,9 @@ class PandoraSource(MusicSource):
     @classmethod
     def _start_tor(cls) -> bool:
         """Start Tor daemon with US exit nodes."""
-        # Always stop existing Tor to ensure we use US exit nodes
-        cls._stop_existing_tor()
+        # If Tor is already running, just use it
+        if cls._is_tor_running():
+            return True
 
         try:
             # Create data directory
