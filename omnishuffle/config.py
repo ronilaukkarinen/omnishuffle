@@ -78,3 +78,43 @@ def update_config(section: str, key: str, value: Any) -> None:
         config[section] = {}
     config[section][key] = value
     save_config(config)
+
+
+def get_banned_path() -> Path:
+    """Get path to banned tracks file."""
+    return get_config_dir() / "banned.json"
+
+
+def load_banned() -> list:
+    """Load banned tracks list."""
+    banned_path = get_banned_path()
+    if banned_path.exists():
+        try:
+            with open(banned_path) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return []
+
+
+def save_banned(banned: list) -> None:
+    """Save banned tracks list."""
+    banned_path = get_banned_path()
+    with open(banned_path, "w") as f:
+        json.dump(banned, f, indent=2)
+
+
+def add_banned(artist: str, title: str) -> None:
+    """Add a track to banned list."""
+    banned = load_banned()
+    key = f"{artist.lower()}|{title.lower()}"
+    if key not in banned:
+        banned.append(key)
+        save_banned(banned)
+
+
+def is_banned(artist: str, title: str) -> bool:
+    """Check if a track is banned."""
+    banned = load_banned()
+    key = f"{artist.lower()}|{title.lower()}"
+    return key in banned

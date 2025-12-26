@@ -6,6 +6,7 @@ import subprocess
 import time
 import atexit
 import tempfile
+import urllib.request
 from typing import List, Optional
 from pathlib import Path
 
@@ -15,12 +16,13 @@ from omnishuffle.sources.base import MusicSource
 # Custom torrc for US exit nodes only
 TORRC_CONTENT = """ExitNodes {US}
 StrictNodes 1
-CircuitBuildTimeout 5
+CircuitBuildTimeout 10
 NumEntryGuards 6
 KeepalivePeriod 60
-NewCircuitPeriod 15
+NewCircuitPeriod 10
 SOCKSPort 9050
 DataDirectory /tmp/omnishuffle_tor_data
+ControlPort 9051
 """
 
 try:
@@ -101,6 +103,40 @@ class PandoraSource(MusicSource):
             time.sleep(0.5)
 
     @classmethod
+    def _verify_us_exit(cls) -> bool:
+        """Verify we have a US exit node by checking IP geolocation."""
+        try:
+            import httpx
+            # Get exit IP via ipify (Tor-friendly)
+            with httpx.Client(proxy="socks5://127.0.0.1:9050", timeout=10) as client:
+                response = client.get("https://api.ipify.org")
+                exit_ip = response.text.strip()
+
+            # Check country via direct request (most geo services block Tor)
+            with httpx.Client(timeout=10) as client:
+                response = client.get(f"https://ipinfo.io/{exit_ip}/country")
+                country = response.text.strip()
+                return country == "US"
+        except Exception:
+            # If we can't verify, assume it's OK (torrc specifies US anyway)
+            return True
+
+    @classmethod
+    def _request_new_circuit(cls):
+        """Request a new Tor circuit via control port."""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect(("127.0.0.1", 9051))
+            s.send(b"AUTHENTICATE\r\n")
+            s.recv(1024)
+            s.send(b"SIGNAL NEWNYM\r\n")
+            s.recv(1024)
+            s.close()
+            time.sleep(2)  # Wait for new circuit
+        except Exception:
+            pass
+
+    @classmethod
     def _start_tor(cls) -> bool:
         """Start Tor daemon with US exit nodes."""
         # If Tor is already running, just use it
@@ -130,7 +166,12 @@ class PandoraSource(MusicSource):
             # Wait for Tor to start (up to 30 seconds)
             for _ in range(30):
                 if cls._is_tor_running():
-                    return True
+                    # Verify US exit, retry with new circuit if not
+                    for attempt in range(3):
+                        if cls._verify_us_exit():
+                            return True
+                        cls._request_new_circuit()
+                    return True  # Give up verifying, try anyway
                 time.sleep(1)
 
             return False
@@ -179,14 +220,28 @@ class PandoraSource(MusicSource):
             # Set up proxy for login
             self._set_proxy()
 
-            self.client = SettingsDictBuilder(PANDORA_PARTNER).build()
-            self.client.login(email, password)
+            # Retry login with different circuits if geo-blocked
+            max_retries = 5
+            for attempt in range(max_retries):
+                try:
+                    self.client = SettingsDictBuilder(PANDORA_PARTNER).build()
+                    self.client.login(email, password)
+                    return  # Success
+                except Exception as e:
+                    msg = str(e).lower()
+                    if "country" in msg or "geo" in msg or "not available" in msg:
+                        # Geo-blocked - try new circuit
+                        if attempt < max_retries - 1:
+                            self._request_new_circuit()
+                            continue
+                    raise  # Re-raise for other errors or final attempt
         except Exception as e:
             # Use sentence case for error messages
             msg = str(e)
             self.error_message = msg.lower() if msg else "unknown error"
             self.client = None
-            # Only clear proxy if login failed
+        finally:
+            # Always clear proxy after init so other services work
             self._clear_proxy()
 
     def is_configured(self) -> bool:
@@ -199,6 +254,7 @@ class PandoraSource(MusicSource):
             return []
 
         try:
+            self._set_proxy()
             stations = self.client.get_station_list()
             self.stations = [
                 {
@@ -209,57 +265,100 @@ class PandoraSource(MusicSource):
                 for s in stations
             ]
             return self.stations
-        except Exception as e:
-            print(f"[DEBUG] get_playlists error: {e}")
+        except Exception:
             return []
+        finally:
+            self._clear_proxy()
 
     def get_tracks_from_playlist(self, playlist_id: str) -> List[Track]:
         """Get tracks from a Pandora station."""
         return self.get_radio_tracks(playlist_id)
 
     def get_radio_tracks(self, seed: Optional[str] = None) -> List[Track]:
-        """Get tracks from a Pandora station."""
+        """Get tracks from Pandora stations using QuickMix (Shuffle)."""
         if not self.client:
             return []
 
         try:
-            # Find station by ID or name
-            station = None
+            self._set_proxy()
+            stations = self.client.get_station_list()
+            if not stations:
+                return []
+
+            # If seed specified, use only that station
             if seed:
-                stations = self.client.get_station_list()
                 for s in stations:
                     if s.id == seed or s.name.lower() == seed.lower():
-                        station = s
+                        stations = [s]
+                        break
+                quickmix_station = stations[0] if stations else None
+            else:
+                # Find the QuickMix/Shuffle station (has isQuickMix=true)
+                quickmix_station = None
+                for s in stations:
+                    if getattr(s, 'is_quickmix', False) or getattr(s, 'isQuickMix', False):
+                        quickmix_station = s
+                        break
+                    # Also check by name as fallback
+                    if s.name.lower() in ('quickmix', 'shuffle'):
+                        quickmix_station = s
                         break
 
-            if not station:
-                # Use first station
-                stations = self.client.get_station_list()
-                if stations:
-                    station = stations[0]
-                else:
-                    return []
-
-            self.current_station = station
-            playlist = station.get_playlist()
-
             tracks = []
-            for song in playlist:
-                track = Track(
-                    title=song.song_name,
-                    artist=song.artist_name,
-                    album=song.album_name,
-                    duration=song.track_length or 0,
-                    url=song.audio_url,
-                    source="pandora",
-                    artwork_url=song.album_art_url,
-                    track_id=song.track_token,
-                )
-                tracks.append(track)
+
+            if quickmix_station:
+                # Use actual QuickMix station - Pandora mixes from all selected stations server-side
+                self.current_station = quickmix_station
+                # Fetch multiple playlists for variety (~4 tracks each)
+                for _ in range(5):
+                    try:
+                        playlist = quickmix_station.get_playlist()
+                        for song in playlist:
+                            if not hasattr(song, 'song_name') or not song.song_name:
+                                continue
+                            track = Track(
+                                title=song.song_name,
+                                artist=song.artist_name,
+                                album=song.album_name,
+                                duration=song.track_length or 0,
+                                url=song.audio_url,
+                                source="pandora",
+                                artwork_url=song.album_art_url,
+                                track_id=song.track_token,
+                            )
+                            tracks.append(track)
+                    except Exception:
+                        pass
+            else:
+                # Fallback: fetch from individual stations if no QuickMix found
+                import random
+                random.shuffle(stations)
+                for station in stations[:20]:
+                    try:
+                        self.current_station = station
+                        playlist = station.get_playlist()
+                        for song in playlist:
+                            if not hasattr(song, 'song_name') or not song.song_name:
+                                continue
+                            track = Track(
+                                title=song.song_name,
+                                artist=song.artist_name,
+                                album=song.album_name,
+                                duration=song.track_length or 0,
+                                url=song.audio_url,
+                                source="pandora",
+                                artwork_url=song.album_art_url,
+                                track_id=song.track_token,
+                            )
+                            tracks.append(track)
+                    except Exception:
+                        continue
+
             return tracks
-        except Exception as e:
-            print(f"[DEBUG] get_radio_tracks error: {e}")
+        except Exception:
             return []
+        finally:
+            self._clear_proxy()
 
     def get_stream_url(self, track: Track) -> str:
         """Pandora tracks already have direct URLs."""
@@ -270,12 +369,15 @@ class PandoraSource(MusicSource):
         if not self.client or not track.track_id:
             return False
         try:
+            self._set_proxy()
             # pydora uses track tokens for feedback
             if self.current_station:
                 self.current_station.add_feedback(track.track_id, True)
                 return True
         except Exception:
             pass
+        finally:
+            self._clear_proxy()
         return False
 
     def ban_track(self, track: Track) -> bool:
@@ -283,11 +385,14 @@ class PandoraSource(MusicSource):
         if not self.client or not track.track_id:
             return False
         try:
+            self._set_proxy()
             if self.current_station:
                 self.current_station.add_feedback(track.track_id, False)
                 return True
         except Exception:
             pass
+        finally:
+            self._clear_proxy()
         return False
 
     def get_more_tracks(self) -> List[Track]:
