@@ -30,8 +30,8 @@ from omnishuffle.sources import SpotifySource, PandoraSource, YouTubeSource, Mus
 
 console = Console()
 
-# Simple playing indicator
-SPINNER_FRAMES = ["♪", "♫", "♪", "♫"]
+# EQ-style animation (vertical bars)
+SPINNER_FRAMES = ["▂▄", "▄▆", "▆█", "█▆", "▆▄", "▄▂", "▂▆", "▆▂"]
 
 
 HELP_TEXT = """

@@ -45,6 +45,7 @@ class PandoraSource(MusicSource):
     name = "pandora"
     _tor_process: Optional[subprocess.Popen] = None
     _torrc_file: Optional[str] = None
+    _proxy: Optional[str] = None
 
     def __init__(self, config: dict):
         self.config = config
@@ -53,6 +54,18 @@ class PandoraSource(MusicSource):
         self.current_station = None
         self.error_message: Optional[str] = None
         self._init_client()
+
+    def _set_proxy(self):
+        """Set proxy env vars for Pandora API calls."""
+        if self._proxy:
+            os.environ["HTTP_PROXY"] = self._proxy
+            os.environ["HTTPS_PROXY"] = self._proxy
+            os.environ["ALL_PROXY"] = self._proxy
+
+    def _clear_proxy(self):
+        """Clear proxy env vars after Pandora API calls."""
+        for var in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
+            os.environ.pop(var, None)
 
     @classmethod
     def _is_tor_running(cls, port: int = 9050) -> bool:
@@ -159,11 +172,11 @@ class PandoraSource(MusicSource):
                     self.error_message = "could not start Tor"
                     return
 
-            # Set up proxy if configured
-            if proxy:
-                os.environ["HTTP_PROXY"] = proxy
-                os.environ["HTTPS_PROXY"] = proxy
-                os.environ["ALL_PROXY"] = proxy
+            # Store proxy for later API calls
+            PandoraSource._proxy = proxy
+
+            # Set up proxy for login
+            self._set_proxy()
 
             self.client = SettingsDictBuilder(PANDORA_PARTNER).build()
             self.client.login(email, password)
@@ -187,6 +200,7 @@ class PandoraSource(MusicSource):
             return []
 
         try:
+            self._set_proxy()
             stations = self.client.get_station_list()
             self.stations = [
                 {
@@ -199,6 +213,8 @@ class PandoraSource(MusicSource):
             return self.stations
         except Exception:
             return []
+        finally:
+            self._clear_proxy()
 
     def get_tracks_from_playlist(self, playlist_id: str) -> List[Track]:
         """Get tracks from a Pandora station."""
@@ -210,6 +226,8 @@ class PandoraSource(MusicSource):
             return []
 
         try:
+            self._set_proxy()
+
             # Find station by ID or name
             station = None
             if seed:
@@ -246,6 +264,8 @@ class PandoraSource(MusicSource):
             return tracks
         except Exception:
             return []
+        finally:
+            self._clear_proxy()
 
     def get_stream_url(self, track: Track) -> str:
         """Pandora tracks already have direct URLs."""
