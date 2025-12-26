@@ -2,7 +2,8 @@
 
 * Start Tor via systemctl for proper permissions
 * MPRIS support for Last.fm scrobbling via rescrobbled
-* Fix Pandora API to use new pydora clientbuilder
+* Fix Pandora API to use iOS partner keys
+* Use sentence case for error messages
 * Volume indicator uses dimmer text color
 * Playing indicator now uses EQ-style animation instead of spinner
 
