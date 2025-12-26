@@ -1,0 +1,23 @@
+[project]
+name = "omnishuffle"
+version = "0.1.0"
+description = "Unified music shuffler for Spotify, Pandora, and YouTube Music"
+requires-python = ">=3.11"
+dependencies = [
+    "python-mpv",
+    "spotipy",
+    "pydora",
+    "yt-dlp",
+    "ytmusicapi",
+    "readchar",
+    "rich",
+    "pysocks",
+    "httpx[socks]",
+]
+
+[project.scripts]
+omnishuffle = "omnishuffle.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
