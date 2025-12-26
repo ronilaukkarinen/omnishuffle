@@ -186,10 +186,8 @@ class PandoraSource(MusicSource):
             msg = str(e)
             self.error_message = msg.lower() if msg else "unknown error"
             self.client = None
-        finally:
-            # Clear proxy env vars so they don't affect other sources
-            for var in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
-                os.environ.pop(var, None)
+            # Only clear proxy if login failed
+            self._clear_proxy()
 
     def is_configured(self) -> bool:
         """Check if Pandora is configured."""
@@ -201,7 +199,6 @@ class PandoraSource(MusicSource):
             return []
 
         try:
-            self._set_proxy()
             stations = self.client.get_station_list()
             self.stations = [
                 {
@@ -215,8 +212,6 @@ class PandoraSource(MusicSource):
         except Exception as e:
             print(f"[DEBUG] get_playlists error: {e}")
             return []
-        finally:
-            self._clear_proxy()
 
     def get_tracks_from_playlist(self, playlist_id: str) -> List[Track]:
         """Get tracks from a Pandora station."""
@@ -228,8 +223,6 @@ class PandoraSource(MusicSource):
             return []
 
         try:
-            self._set_proxy()
-
             # Find station by ID or name
             station = None
             if seed:
@@ -267,8 +260,6 @@ class PandoraSource(MusicSource):
         except Exception as e:
             print(f"[DEBUG] get_radio_tracks error: {e}")
             return []
-        finally:
-            self._clear_proxy()
 
     def get_stream_url(self, track: Track) -> str:
         """Pandora tracks already have direct URLs."""
