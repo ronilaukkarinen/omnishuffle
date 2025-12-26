@@ -213,36 +213,72 @@ class SpotifySource(MusicSource):
                 break
         return tracks
 
-    def get_liked_tracks(self, limit: int = 50) -> List[Track]:
-        """Get user's liked/saved tracks."""
+    def get_liked_tracks(self, limit: int = 50, shuffle: bool = True) -> List[Track]:
+        """Get user's liked/saved tracks.
+
+        If shuffle=True, fetches from random positions in the library.
+        """
         if not self.sp:
             return []
 
         tracks = []
         try:
-            results = self.sp.current_user_saved_tracks(limit=min(limit, 50))
-            while results and len(tracks) < limit:
-                for item in results["items"]:
-                    track_data = item.get("track")
-                    if not track_data:
-                        continue
+            # First, get total count of liked tracks
+            initial = self.sp.current_user_saved_tracks(limit=1)
+            total = initial.get("total", 0)
 
-                    track = Track(
-                        title=track_data["name"],
-                        artist=", ".join(a["name"] for a in track_data["artists"]),
-                        album=track_data["album"]["name"],
-                        duration=track_data["duration_ms"] // 1000,
-                        url="",
-                        source="spotify",
-                        artwork_url=track_data["album"]["images"][0]["url"] if track_data["album"]["images"] else None,
-                        track_id=track_data["id"],
-                    )
-                    tracks.append(track)
+            if total == 0:
+                return []
 
-                if results["next"] and len(tracks) < limit:
-                    results = self.sp.next(results)
-                else:
-                    break
+            if shuffle and total > limit:
+                # Fetch from random offsets to get variety
+                import random
+                offsets = random.sample(range(0, total, 10), min(limit // 10 + 1, total // 10))
+                for offset in offsets:
+                    if len(tracks) >= limit:
+                        break
+                    results = self.sp.current_user_saved_tracks(limit=10, offset=offset)
+                    for item in results.get("items", []):
+                        if len(tracks) >= limit:
+                            break
+                        track_data = item.get("track")
+                        if not track_data:
+                            continue
+                        track = Track(
+                            title=track_data["name"],
+                            artist=", ".join(a["name"] for a in track_data["artists"]),
+                            album=track_data["album"]["name"],
+                            duration=track_data["duration_ms"] // 1000,
+                            url="",
+                            source="spotify",
+                            artwork_url=track_data["album"]["images"][0]["url"] if track_data["album"]["images"] else None,
+                            track_id=track_data["id"],
+                        )
+                        tracks.append(track)
+                random.shuffle(tracks)
+            else:
+                # Sequential fetch for small libraries or when shuffle=False
+                results = self.sp.current_user_saved_tracks(limit=min(limit, 50))
+                while results and len(tracks) < limit:
+                    for item in results["items"]:
+                        track_data = item.get("track")
+                        if not track_data:
+                            continue
+                        track = Track(
+                            title=track_data["name"],
+                            artist=", ".join(a["name"] for a in track_data["artists"]),
+                            album=track_data["album"]["name"],
+                            duration=track_data["duration_ms"] // 1000,
+                            url="",
+                            source="spotify",
+                            artwork_url=track_data["album"]["images"][0]["url"] if track_data["album"]["images"] else None,
+                            track_id=track_data["id"],
+                        )
+                        tracks.append(track)
+                    if results["next"] and len(tracks) < limit:
+                        results = self.sp.next(results)
+                    else:
+                        break
         except Exception:
             pass
         return tracks[:limit]

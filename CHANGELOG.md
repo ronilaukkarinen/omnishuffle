@@ -1,3 +1,9 @@
+### 1.0.3: 2025-12-26
+
+* Fix auto-play next track for Pandora/YouTube (loading flag was not cleared)
+* Shuffle Spotify liked songs from random positions in library (not just first 50)
+* Fix scrobbling reliability when pressing n multiple times (non-blocking API calls)
+
 ### 1.0.2: 2025-12-26
 
 * Show version number in startup box

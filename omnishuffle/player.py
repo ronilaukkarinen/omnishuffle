@@ -57,8 +57,12 @@ class Player:
 
         @self.mpv.property_observer('time-pos')
         def on_time(name, value):
-            if value is not None and self._on_time_update and not self._using_spotify_connect:
-                self._on_time_update(value)
+            if value is not None and not self._using_spotify_connect:
+                # Clear loading flag when playback actually starts
+                if self._loading:
+                    self._loading = False
+                if self._on_time_update:
+                    self._on_time_update(value)
 
         @self.mpv.event_callback('end-file')
         def on_end_file(event):

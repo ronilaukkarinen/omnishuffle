@@ -430,11 +430,17 @@ class OmniShuffle:
             self._status_first_print = True
 
             if self.scrobbler and self.scrobbler.enabled:
-                self.scrobbler.now_playing(track)
-                def fetch_track_info():
+                # Reset scrobbler state immediately (non-blocking)
+                self.scrobbler.current_track = track
+                self.scrobbler.track_start_time = time.time()
+                self.scrobbler.scrobbled = False
+
+                # API calls in background to not block track changes
+                def update_lastfm():
+                    self.scrobbler.now_playing(track)
                     self.current_genres = self.scrobbler.get_track_tags(track)
                     self.current_loved = self.scrobbler.is_loved(track)
-                threading.Thread(target=fetch_track_info, daemon=True).start()
+                threading.Thread(target=update_lastfm, daemon=True).start()
 
             # Clear display for fresh status
             sys.stdout.write("\r\033[K\n\033[K\033[A")
