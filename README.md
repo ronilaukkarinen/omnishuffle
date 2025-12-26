@@ -1,5 +1,6 @@
 # OmniShuffle
 
+[![Version](https://img.shields.io/github/v/release/ronilaukkarinen/omnishuffle?style=for-the-badge&label=Version)](https://github.com/ronilaukkarinen/omnishuffle/releases)
 ![Built with Python](https://img.shields.io/badge/Built%20with-Python-blue?style=for-the-badge&logo=python&logoColor=white)
 ![License MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 ![Platform Linux](https://img.shields.io/badge/Platform-Linux-orange?style=for-the-badge&logo=linux&logoColor=white)
@@ -35,7 +36,7 @@ A unified command-line music shuffler that combines Spotify, Pandora, and YouTub
 ### Using pipx (recommended)
 
 ```bash
-git clone https://github.com/yourusername/omnishuffle.git
+git clone https://github.com/ronilaukkarinen/omnishuffle.git
 cd omnishuffle
 pipx install -e .
 ```
@@ -43,7 +44,7 @@ pipx install -e .
 ### Using pip
 
 ```bash
-git clone https://github.com/yourusername/omnishuffle.git
+git clone https://github.com/ronilaukkarinen/omnishuffle.git
 cd omnishuffle
 pip install -e .
 ```

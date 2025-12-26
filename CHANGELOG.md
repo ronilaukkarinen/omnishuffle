@@ -1,4 +1,4 @@
-### Unreleased
+### 1.0.0: 2025-12-26
 
 * Spotify Connect support for 320kbps Premium streaming via spotifyd
 * Direct librespot streaming option (for accounts without 2FA)
@@ -28,6 +28,8 @@
 * Show source breakdown in track count
 * EQ-style animation for playing indicator
 * Volume indicator uses dimmer text color
+* Truncate status lines to terminal width to prevent display issues
+* Use primary artist for scrobbling with multi-artist tracks
 
 ### 0.1.0: 2025-12-26
 
