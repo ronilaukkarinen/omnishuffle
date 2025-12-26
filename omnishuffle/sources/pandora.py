@@ -13,7 +13,7 @@ from omnishuffle.player import Track
 from omnishuffle.sources.base import MusicSource
 
 # Custom torrc for US exit nodes only
-TORRC_CONTENT = """ExitNodes {us}
+TORRC_CONTENT = """ExitNodes {US}
 StrictNodes 1
 CircuitBuildTimeout 5
 NumEntryGuards 6
