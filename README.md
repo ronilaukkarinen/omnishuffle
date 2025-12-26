@@ -81,7 +81,7 @@ The player will start shuffling music from all configured sources.
 | `p` | Pause/Resume |
 | `Space` | Pause/Resume |
 | `+` | Love current track (syncs to Last.fm + source) |
-| `-` | Ban current track (Pandora) |
+| `-` | Ban current track |
 | `(` | Volume down |
 | `)` | Volume up |
 | `l` | Refresh Last.fm recommendations |
