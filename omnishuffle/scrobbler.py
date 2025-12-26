@@ -58,13 +58,13 @@ class Scrobbler:
         return artist.split(',')[0].strip()
 
     def now_playing(self, track: Track) -> bool:
-        """Update now playing status on Last.fm."""
+        """Update now playing status on Last.fm.
+
+        Note: State (current_track, track_start_time, scrobbled) should be
+        set by caller before calling this method to avoid race conditions.
+        """
         if not self.enabled:
             return False
-
-        self.current_track = track
-        self.track_start_time = time.time()
-        self.scrobbled = False
 
         try:
             artist = self._get_primary_artist(track.artist)
@@ -125,6 +125,7 @@ class Scrobbler:
             return False
 
         track = self.current_track
+        track_id = track.track_id
         timestamp = int(self.track_start_time or time.time())
         artist = self._get_primary_artist(track.artist)
         title = track.title.strip() if track.title else ""
@@ -139,7 +140,9 @@ class Scrobbler:
                 album=track.album.strip() if track.album else None,
                 timestamp=timestamp,
             )
-            self.scrobbled = True
+            # Only mark as scrobbled if this track is still current
+            if self.current_track and self.current_track.track_id == track_id:
+                self.scrobbled = True
             return True
         except Exception as e:
             self._last_error = str(e)

@@ -435,11 +435,15 @@ class OmniShuffle:
                 self.scrobbler.track_start_time = time.time()
                 self.scrobbler.scrobbled = False
 
-                # API calls in background to not block track changes
+                # API calls in background after delay to avoid API spam when skipping
+                track_id = track.track_id
                 def update_lastfm():
-                    self.scrobbler.now_playing(track)
-                    self.current_genres = self.scrobbler.get_track_tags(track)
-                    self.current_loved = self.scrobbler.is_loved(track)
+                    time.sleep(3)  # Wait 3 seconds before updating now playing
+                    # Only update if this track is still playing
+                    if self.scrobbler.current_track and self.scrobbler.current_track.track_id == track_id:
+                        self.scrobbler.now_playing(track)
+                        self.current_genres = self.scrobbler.get_track_tags(track)
+                        self.current_loved = self.scrobbler.is_loved(track)
                 threading.Thread(target=update_lastfm, daemon=True).start()
 
             # Clear display for fresh status
@@ -494,11 +498,10 @@ class OmniShuffle:
 
         if loved_on:
             services = ", ".join(loved_on)
-            console.print(f"[red]♥[/red] [green]Loved on {services}[/green]")
-            console.print()
+            console.print(f"\n[red]♥ Loved on {services}[/red]")
+            self.current_loved = True
         else:
-            console.print("[yellow]Love failed[/yellow]")
-            console.print()
+            console.print("\n[yellow]Love failed[/yellow]")
 
     def ban_current(self):
         """Ban/dislike current track."""

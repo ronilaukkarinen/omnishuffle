@@ -97,40 +97,19 @@ class YouTubeSource(MusicSource):
 
     def get_radio_tracks(self, seed: Optional[str] = None) -> List[Track]:
         """Get radio/recommendations based on a search or video."""
-        if not self.yt:
+        if not self.yt or not seed:
             return []
 
         try:
-            if seed:
-                # Search for the seed
-                results = self.yt.search(seed, filter="songs", limit=1)
-                if results:
-                    video_id = results[0].get("videoId")
-                    if video_id:
-                        # Get radio based on this song
-                        radio = self.yt.get_watch_playlist(videoId=video_id, limit=50)
-                        return self._parse_watch_playlist(radio)
-
-            # Fallback to home recommendations
-            home = self.yt.get_home(limit=3)
-            tracks = []
-            for section in home:
-                for item in section.get("contents", [])[:10]:
-                    if item.get("videoId"):
-                        artists = item.get("artists", [])
-                        artist_name = ", ".join(a["name"] for a in artists) if artists else "Unknown"
-                        track = Track(
-                            title=item.get("title", "Unknown"),
-                            artist=artist_name,
-                            album="",
-                            duration=0,
-                            url=f"https://music.youtube.com/watch?v={item['videoId']}",
-                            source="youtube",
-                            artwork_url=item.get("thumbnails", [{}])[-1].get("url"),
-                            track_id=item["videoId"],
-                        )
-                        tracks.append(track)
-            return tracks
+            # Search for the seed
+            results = self.yt.search(seed, filter="songs", limit=1)
+            if results:
+                video_id = results[0].get("videoId")
+                if video_id:
+                    # Get radio based on this song
+                    radio = self.yt.get_watch_playlist(videoId=video_id, limit=50)
+                    return self._parse_watch_playlist(radio)
+            return []
         except Exception:
             return []
 
