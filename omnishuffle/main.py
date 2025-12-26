@@ -133,7 +133,7 @@ class OmniShuffle:
                 console.print("[red]✗[/red] Spotify not configured")
 
         if "pandora" in enabled:
-            sys.stdout.write("  Starting Tor for Pandora...")
+            sys.stdout.write("→ Starting Tor for Pandora...")
             sys.stdout.flush()
             src = PandoraSource(self.config.get("pandora", {}))
             sys.stdout.write("\r\033[2K")  # Clear the line

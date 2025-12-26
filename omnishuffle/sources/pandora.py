@@ -20,6 +20,7 @@ NumEntryGuards 6
 KeepalivePeriod 60
 NewCircuitPeriod 15
 SOCKSPort 9050
+DataDirectory /tmp/omnishuffle_tor_data
 """
 
 try:
@@ -66,12 +67,37 @@ class PandoraSource(MusicSource):
             return False
 
     @classmethod
+    def _stop_existing_tor(cls):
+        """Stop any existing Tor processes."""
+        # Stop systemd service
+        subprocess.run(
+            ['sudo', 'systemctl', 'stop', 'tor'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        # Kill any remaining tor processes
+        subprocess.run(
+            ['pkill', '-9', 'tor'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        # Wait for port to be released
+        for _ in range(10):
+            if not cls._is_tor_running():
+                return
+            time.sleep(0.5)
+
+    @classmethod
     def _start_tor(cls) -> bool:
         """Start Tor daemon with US exit nodes."""
-        if cls._is_tor_running():
-            return True
+        # Always stop existing Tor to ensure we use US exit nodes
+        cls._stop_existing_tor()
 
         try:
+            # Create data directory
+            data_dir = Path("/tmp/omnishuffle_tor_data")
+            data_dir.mkdir(exist_ok=True)
+
             # Create custom torrc with US exit nodes
             torrc_path = Path(tempfile.gettempdir()) / "omnishuffle_torrc"
             torrc_path.write_text(TORRC_CONTENT)
