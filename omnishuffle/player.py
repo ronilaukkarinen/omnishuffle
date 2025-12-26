@@ -207,9 +207,19 @@ class Player:
     @property
     def duration(self) -> float:
         """Track duration in seconds."""
-        if self.current_track:
+        if self.current_track and self.current_track.duration > 0:
             return self.current_track.duration
-        return self.mpv.duration or 0
+        # Fall back to mpv duration for YouTube/unknown tracks
+        try:
+            mpv_dur = self.mpv.duration
+            if mpv_dur and mpv_dur > 0:
+                # Update track duration for scrobbling
+                if self.current_track:
+                    self.current_track.duration = int(mpv_dur)
+                return float(mpv_dur)
+        except Exception:
+            pass
+        return 0
 
     @property
     def volume(self) -> int:

@@ -60,10 +60,13 @@ class Scrobbler:
         self.scrobbled = False
 
         try:
-            artist = track.artist
-            title = track.title
-            album = track.album or None
-            duration = track.duration if track.duration > 0 else None
+            artist = track.artist.strip() if track.artist else ""
+            title = track.title.strip() if track.title else ""
+            album = track.album.strip() if track.album else None
+            duration = track.duration if track.duration and track.duration > 0 else None
+
+            if not artist or not title:
+                return False
 
             self.network.update_now_playing(
                 artist=artist,

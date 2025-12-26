@@ -141,7 +141,7 @@ class OmniShuffle:
 
         # Time - use stored position from observer
         position = self._current_position
-        duration = track.duration or 0
+        duration = self.player.duration or 0
         progress_bar = self._get_progress_bar(position, duration)
         time_current = self._format_time(position)
         time_total = self._format_time(duration)
@@ -201,14 +201,15 @@ class OmniShuffle:
 
             # Check for Spotify Connect track end (local timer doesn't know when track ends)
             if self.current_track and self.player.is_spotify_connect and not self.paused:
-                if self._current_position >= self.current_track.duration - 1:
+                dur = self.player.duration
+                if dur > 0 and self._current_position >= dur - 1:
                     self._on_track_end()
                     continue
 
             # Scrobble check
             if self.scrobbler and self.scrobbler.enabled and self.current_track and not self.paused:
                 pos = self._current_position
-                dur = self.current_track.duration
+                dur = self.player.duration
                 if pos > 0:
                     self.scrobbler.check_scrobble(pos, dur)
                     if self.scrobbler.scrobbled and not self.current_scrobbled:
