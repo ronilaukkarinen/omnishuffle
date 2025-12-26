@@ -1,10 +1,10 @@
 # 📻 OmniShuffle
 
-[![Version](https://img.shields.io/github/v/release/ronilaukkarinen/omnishuffle?style=for-the-badge&label=Version)](https://github.com/ronilaukkarinen/omnishuffle/releases)
-![Built with Python](https://img.shields.io/badge/Built%20with-Python-blue?style=for-the-badge&logo=python&logoColor=white)
-![License MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Platform Linux](https://img.shields.io/badge/Platform-Linux-orange?style=for-the-badge&logo=linux&logoColor=white)
-![Last.fm Scrobbling](https://img.shields.io/badge/Last.fm-Scrobbling-red?style=for-the-badge&logo=lastdotfm&logoColor=white)
+![Python](https://img.shields.io/badge/Python-4584b6?style=for-the-badge&logo=python&logoColor=white)
+![Spotify](https://img.shields.io/badge/Spotify-1db954?style=for-the-badge&logo=spotify&logoColor=white)
+![Pandora](https://img.shields.io/badge/Pandora-5D47DB?style=for-the-badge&logo=pandora&logoColor=white)
+![YouTube Music](https://img.shields.io/badge/YouTube%20Music-ff0000?style=for-the-badge&logo=youtube&logoColor=white)
+![Last.fm](https://img.shields.io/badge/Last.fm-d51007?style=for-the-badge&logo=lastdotfm&logoColor=white)
 
 A unified command-line music shuffler that combines Spotify, Pandora, and YouTube Music into a single streaming experience with pianobar-style controls and Last.fm scrobbling support.
 
