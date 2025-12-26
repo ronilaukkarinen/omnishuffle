@@ -6,7 +6,9 @@
 ![YouTube Music](https://img.shields.io/badge/YouTube%20Music-ff0000?style=for-the-badge&logo=youtube&logoColor=white)
 ![Last.fm](https://img.shields.io/badge/Last.fm-d51007?style=for-the-badge&logo=lastdotfm&logoColor=white)
 
-A unified command-line music shuffler that combines Spotify, Pandora, and YouTube Music into a single streaming experience with pianobar-style controls and Last.fm scrobbling support.
+A unified command-line music shuffler that combines **Spotify, Pandora, and YouTube Music into a single streaming experience** with pianobar-style controls and Last.fm scrobbling support.
+
+<img width="664" height="321" alt="image" src="https://github.com/user-attachments/assets/b004218f-14ea-48e7-96f3-cd4fac0491a4" />
 
 ## Features
 
