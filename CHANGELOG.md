@@ -1,3 +1,9 @@
+### 1.0.1: 2025-12-26
+
+* Truncate status lines to terminal width to prevent display issues
+* Use primary artist for scrobbling with multi-artist tracks
+* Fix auto-play next track when Pandora/YouTube song ends
+
 ### 1.0.0: 2025-12-26
 
 * Spotify Connect support for 320kbps Premium streaming via spotifyd
@@ -28,9 +34,6 @@
 * Show source breakdown in track count
 * EQ-style animation for playing indicator
 * Volume indicator uses dimmer text color
-* Truncate status lines to terminal width to prevent display issues
-* Use primary artist for scrobbling with multi-artist tracks
-* Fix auto-play next track when Pandora/YouTube song ends
 
 ### 0.1.0: 2025-12-26
 
