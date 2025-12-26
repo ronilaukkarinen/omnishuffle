@@ -5,10 +5,22 @@ import socket
 import subprocess
 import time
 import atexit
+import tempfile
 from typing import List, Optional
+from pathlib import Path
 
 from omnishuffle.player import Track
 from omnishuffle.sources.base import MusicSource
+
+# Custom torrc for US exit nodes only
+TORRC_CONTENT = """ExitNodes {us}
+StrictNodes 1
+CircuitBuildTimeout 5
+NumEntryGuards 6
+KeepalivePeriod 60
+NewCircuitPeriod 15
+SOCKSPort 9050
+"""
 
 try:
     from pandora.clientbuilder import SettingsDictBuilder
@@ -31,6 +43,7 @@ class PandoraSource(MusicSource):
 
     name = "pandora"
     _tor_process: Optional[subprocess.Popen] = None
+    _torrc_file: Optional[str] = None
 
     def __init__(self, config: dict):
         self.config = config
@@ -54,18 +67,25 @@ class PandoraSource(MusicSource):
 
     @classmethod
     def _start_tor(cls) -> bool:
-        """Start Tor daemon if not running."""
+        """Start Tor daemon with US exit nodes."""
         if cls._is_tor_running():
             return True
 
         try:
-            # Try to start Tor via systemctl (handles permissions properly)
-            subprocess.run(
-                ['sudo', 'systemctl', 'start', 'tor'],
+            # Create custom torrc with US exit nodes
+            torrc_path = Path(tempfile.gettempdir()) / "omnishuffle_torrc"
+            torrc_path.write_text(TORRC_CONTENT)
+            cls._torrc_file = str(torrc_path)
+
+            # Start Tor with custom config
+            cls._tor_process = subprocess.Popen(
+                ['tor', '-f', str(torrc_path)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=10,
             )
+
+            # Register cleanup
+            atexit.register(cls._stop_tor)
 
             # Wait for Tor to start (up to 30 seconds)
             for _ in range(30):
@@ -78,6 +98,19 @@ class PandoraSource(MusicSource):
             return False
         except Exception:
             return False
+
+    @classmethod
+    def _stop_tor(cls):
+        """Stop Tor daemon if we started it."""
+        if cls._tor_process:
+            cls._tor_process.terminate()
+            cls._tor_process = None
+        if cls._torrc_file:
+            try:
+                Path(cls._torrc_file).unlink(missing_ok=True)
+            except Exception:
+                pass
+            cls._torrc_file = None
 
     def _init_client(self):
         """Initialize Pandora client with optional proxy."""

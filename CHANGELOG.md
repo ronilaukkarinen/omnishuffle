@@ -1,6 +1,6 @@
 ### Unreleased
 
-* Start Tor via systemctl for proper permissions
+* Start Tor with US exit nodes for Pandora geo-restriction bypass
 * MPRIS support for Last.fm scrobbling via rescrobbled
 * Fix Pandora API to use iOS partner keys
 * Use sentence case for error messages
