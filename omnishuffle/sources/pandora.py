@@ -11,11 +11,19 @@ from omnishuffle.player import Track
 from omnishuffle.sources.base import MusicSource
 
 try:
-    from pydora.api import Pandora
-    from pydora.utils import PandoraConfig
+    from pandora.clientbuilder import SettingsDictBuilder
     PYDORA_AVAILABLE = True
 except ImportError:
     PYDORA_AVAILABLE = False
+
+# Partner keys for Pandora API (from pandora-apidoc)
+PANDORA_PARTNER = {
+    "DECRYPTION_KEY": "R=U!LH$O2B#",
+    "ENCRYPTION_KEY": "6#26FRL$ZWD",
+    "PARTNER_USER": "android",
+    "PARTNER_PASSWORD": "AC7IBG09A3DTSBER",
+    "DEVICE": "android-generic",
+}
 
 
 class PandoraSource(MusicSource):
@@ -26,7 +34,7 @@ class PandoraSource(MusicSource):
 
     def __init__(self, config: dict):
         self.config = config
-        self.client: Optional[Pandora] = None
+        self.client = None
         self.stations: List[dict] = []
         self.current_station = None
         self.error_message: Optional[str] = None
@@ -106,7 +114,7 @@ class PandoraSource(MusicSource):
                 os.environ["HTTPS_PROXY"] = proxy
                 os.environ["ALL_PROXY"] = proxy
 
-            self.client = Pandora()
+            self.client = SettingsDictBuilder(PANDORA_PARTNER).build()
             self.client.login(email, password)
         except Exception as e:
             self.error_message = str(e)

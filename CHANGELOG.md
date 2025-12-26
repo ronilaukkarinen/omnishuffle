@@ -1,25 +1,12 @@
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-### Added
+### Unreleased
 
 * Automatic Tor startup for Pandora when proxy is configured
 * MPRIS support for Last.fm scrobbling via rescrobbled
-
-### Changed
-
+* Fix Pandora API to use new pydora clientbuilder
 * Volume indicator uses dimmer text color
 * Playing indicator now uses EQ-style animation instead of spinner
 
-## [0.1.0] - 2025-12-26
-
-### Added
+### 0.1.0: 2025-12-26
 
 * Initial release
 * Spotify integration with OAuth authentication
