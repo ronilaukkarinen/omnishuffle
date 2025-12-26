@@ -271,14 +271,14 @@ Press `l` to refresh recommendations anytime.
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      OmniShuffle                            │
-├──────────┬──────────┬──────────┬──────────┬────────────────┤
-│ Spotify  │ Pandora  │ YouTube  │ Last.fm  │ spotifyd       │
-│ (spotipy)│ (pydora) │ (ytmusic)│ (pylast) │ (320kbps)      │
-└────┬─────┴────┬─────┴────┬─────┴────┬─────┴───────┬────────┘
+┌───────────────────────────────────────────────────────┐
+│                      OmniShuffle                      │
+├──────────┬──────────┬──────────┬──────────┬───────────┤
+│ Spotify  │ Pandora  │ YouTube  │ Last.fm  │ spotifyd  │
+│ (spotipy)│ (pydora) │ (ytmusic)│ (pylast) │ (320kbps) │
+└────┬─────┴────┬─────┴────┬─────┴────┬─────┴───────┬───┘
      │          │          │          │             │
-     │          │          │    recommendations    │
+     │          │          │    recommendations     │
      │          │          │          │         playback
      └──────────┴──────────┴──────────┘             │
                      │                              │
