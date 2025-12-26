@@ -1,4 +1,4 @@
-# OmniShuffle
+# 📻 OmniShuffle
 
 [![Version](https://img.shields.io/github/v/release/ronilaukkarinen/omnishuffle?style=for-the-badge&label=Version)](https://github.com/ronilaukkarinen/omnishuffle/releases)
 ![Built with Python](https://img.shields.io/badge/Built%20with-Python-blue?style=for-the-badge&logo=python&logoColor=white)
