@@ -10,21 +10,25 @@ A unified command-line music shuffler that combines Spotify, Pandora, and YouTub
 ## Features
 
 - Shuffle music across multiple streaming services simultaneously
+- **Spotify Connect support** - 320kbps Premium streaming via spotifyd/librespot
 - Pianobar-style single-key controls for seamless interaction
-- Automatic Last.fm scrobbling via MPRIS
-- Pandora support with Tor proxy for geographic restrictions
-- Radio/recommendations mode using each service's algorithm
-- Playlist mode to shuffle from your saved playlists
-- Love and ban tracks with single keystrokes
+- Built-in Last.fm scrobbling with real-time now playing updates
+- Last.fm-based music discovery using similar artists/tracks
+- Pandora QuickMix support with automatic Tor proxy for geographic restrictions
+- Modern progress bar with brand colors and audio quality display
+- Genre tags from Last.fm shown in real-time
+- Heart icon (♥) for tracks loved on Last.fm
+- Love tracks synced to both Last.fm AND source service
+- Endless playback - queue auto-refills when empty
 
 ## Requirements
 
 - Python 3.11+
 - mpv (with libmpv)
-- mpv-mpris (for Last.fm scrobbling)
 - ffmpeg
 - pipx (recommended for installation)
-- Tor (optional, for Pandora outside USA)
+- Tor (optional, for Pandora outside USA - auto-starts when needed)
+- spotifyd or librespot (optional, for Spotify 320kbps streaming)
 
 ## Installation
 
@@ -54,6 +58,18 @@ omnishuffle
 
 The player will start shuffling music from all configured sources.
 
+### Status display
+
+```
+▄▆ [SPOTIFY] Artist - Song Title ♥  (rock, metal)
+━━━━━━━━╸──────────────── 2:42/5:28  320kbps vorbis ⚡  vol 100%
+```
+
+- Brand-colored progress bar (green=Spotify, blue=Pandora, red=YouTube)
+- ⚡ indicates Spotify Connect (320kbps)
+- ♥ indicates track is loved on Last.fm
+- Genre tags from Last.fm
+
 ## Controls
 
 | Key | Action |
@@ -61,11 +77,12 @@ The player will start shuffling music from all configured sources.
 | `n` | Next track |
 | `p` | Pause/Resume |
 | `Space` | Pause/Resume |
-| `+` | Love current track |
+| `+` | Love current track (syncs to Last.fm + source) |
 | `-` | Ban current track (Pandora) |
 | `(` | Volume down |
 | `)` | Volume up |
-| `i` | Show track info |
+| `l` | Refresh Last.fm recommendations |
+| `i` | Show track info (genres, quality, queue size) |
 | `S` | Shuffle queue |
 | `h` | Show help |
 | `q` | Quit |
@@ -74,57 +91,103 @@ The player will start shuffling music from all configured sources.
 
 Configuration is stored in `~/.config/omnishuffle/config.json`.
 
-### Spotify setup
-
-1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Click **Create app**
-3. Fill in the details:
-   - App name: `OmniShuffle` (or anything you like)
-   - App description: Anything
-   - Redirect URI: **must be exactly** `http://127.0.0.1:8080` (click Add)
-   - Which API/SDKs are you planning to use?: Select **Web API**
-4. Check the terms checkbox and click **Save**
-5. Click **Settings** in your new app
-6. Copy the **Client ID** and click **View client secret** to copy the secret
-
-Add to your config (`~/.config/omnishuffle/config.json`):
+### Complete example config
 
 ```json
 {
+  "general": {
+    "default_mode": "shuffle",
+    "sources": ["spotify", "pandora", "youtube"],
+    "volume": 80
+  },
   "spotify": {
     "client_id": "your_client_id",
     "client_secret": "your_client_secret",
     "redirect_uri": "http://127.0.0.1:8080"
+  },
+  "pandora": {
+    "email": "your@email.com",
+    "password": "your_password",
+    "proxy": "socks5://127.0.0.1:9050"
+  },
+  "lastfm": {
+    "api_key": "your_api_key",
+    "api_secret": "your_shared_secret",
+    "username": "your_lastfm_username",
+    "password": "your_lastfm_password"
   }
 }
 ```
 
-**Important:** The redirect URI in your Spotify app settings must match exactly what's in your config. If you get "INVALID_CLIENT: Invalid redirect URI", check that `http://127.0.0.1:8080` is added in your app's Redirect URIs.
+## Spotify setup
 
-On first run, a browser will open for you to authorize the app.
+### Basic setup (plays via YouTube)
 
-### Pandora setup
+1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Click **Create app**
+3. Fill in the details:
+   - App name: `OmniShuffle`
+   - Redirect URI: `http://127.0.0.1:8080` (click Add)
+   - Which API/SDKs: Select **Web API**
+4. Click **Save**, then **Settings**
+5. Copy the **Client ID** and **Client Secret**
 
-Pandora is only available in the USA. For users outside the USA, you'll need Tor.
+On first run, a browser opens for authorization.
 
-#### Creating a Pandora account (outside USA)
+### Spotify Connect setup (320kbps Premium streaming)
 
-1. Install and start Tor:
-   ```bash
-   sudo pacman -S tor
-   sudo systemctl start tor
-   ```
+For true 320kbps Spotify quality, install spotifyd:
 
-2. Configure your browser to use SOCKS5 proxy `127.0.0.1:9050`
-   - Or use Tor Browser
+```bash
+# Arch Linux
+yay -S spotifyd
 
+# Or install librespot directly
+yay -S librespot
+```
+
+Configure spotifyd (`~/.config/spotifyd/spotifyd.conf`):
+
+```ini
+[global]
+username = "your_spotify_username"
+password = "your_spotify_password"
+device_name = "OmniShuffle"
+device_type = "computer"
+bitrate = 320
+backend = "pulseaudio"
+```
+
+Start spotifyd:
+
+```bash
+systemctl --user enable --now spotifyd
+```
+
+OmniShuffle will automatically detect the spotifyd device and use it for Spotify tracks at 320kbps. You'll see:
+
+```
+✓ Spotify connected (320kbps via OmniShuffle)
+```
+
+If no Spotify Connect device is found, it falls back to YouTube:
+
+```
+✓ Spotify connected (via YouTube fallback)
+```
+
+## Pandora setup
+
+Pandora is only available in the USA. For users outside the USA, OmniShuffle auto-starts Tor with US exit nodes.
+
+### Creating a Pandora account (outside USA)
+
+1. Install Tor: `sudo pacman -S tor`
+2. Use Tor Browser or configure your browser to use SOCKS5 proxy `127.0.0.1:9050`
 3. Go to [pandora.com](https://www.pandora.com) and create a free account
-
 4. Create some stations based on artists/songs you like
 
-#### Configuration
-
-Add to your config (`~/.config/omnishuffle/config.json`):
+### Configuration
 
 ```json
 {
@@ -136,203 +199,103 @@ Add to your config (`~/.config/omnishuffle/config.json`):
 }
 ```
 
-If you're in the USA, you can leave the proxy empty:
+OmniShuffle will:
+- Auto-start Tor with US exit nodes
+- Verify the exit node is in the US
+- Retry with a new circuit if needed
+- Use QuickMix (Shuffle) station that mixes from all your selected stations
 
-```json
-{
-  "pandora": {
-    "proxy": ""
-  }
-}
-```
+If you're in the USA, leave proxy empty or omit it.
 
-Make sure Tor is running before starting OmniShuffle:
+## YouTube Music setup (optional)
 
-```bash
-sudo systemctl start tor
-```
+YouTube Music works without authentication - OmniShuffle searches YouTube and plays via yt-dlp.
 
-### YouTube Music setup (optional)
+Authentication is only needed for personal playlists. See the detailed setup in the wiki if needed.
 
-YouTube Music works without authentication. OmniShuffle will search YouTube and play audio via yt-dlp - no setup needed.
+## Last.fm integration
 
-Authentication is **only required** if you want to access your personal YouTube Music playlists and liked songs. If you don't use YouTube Music playlists, skip this section entirely.
+OmniShuffle has built-in Last.fm support - no external scrobblers needed.
 
-#### Creating Google OAuth credentials
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-
-2. Create a new project:
-   - Click the project dropdown at the top
-   - Click **New Project**
-   - Name it `OmniShuffle` and click **Create**
-   - Wait for the project to be created and select it
-
-3. Enable the YouTube Data API:
-   - Go to **APIs & Services > Library**
-   - Search for "YouTube Data API v3"
-   - Click it and click **Enable**
-
-4. Configure OAuth consent screen:
-   - Go to **APIs & Services > OAuth consent screen**
-   - Select **External** and click **Create**
-   - Fill in the required fields:
-     - App name: `OmniShuffle`
-     - User support email: Your email
-     - Developer contact email: Your email
-   - Click **Save and Continue**
-   - Skip "Scopes" (just click **Save and Continue**)
-   - **Important - Add test users:**
-     - Click **Add Users**
-     - Add your own Google/Gmail email address
-     - Click **Save and Continue**
-   - Click **Back to Dashboard**
-
-5. Create OAuth credentials:
-   - Go to **APIs & Services > Credentials**
-   - Click **Create Credentials > OAuth client ID**
-   - Application type: **TVs and Limited Input devices** (not Desktop app!)
-   - Name: `OmniShuffle`
-   - Click **Create**
-   - Copy the **Client ID** and **Client Secret**
-
-#### Running the authentication
-
-```bash
-~/.local/share/pipx/venvs/omnishuffle/bin/ytmusicapi oauth
-```
-
-When prompted:
-- Paste your Client ID
-- Paste your Client Secret
-- A browser will open for you to authorize
-
-Move the generated file:
-
-```bash
-mv oauth.json ~/.config/omnishuffle/ytmusic_auth.json
-```
-
-Update your config (`~/.config/omnishuffle/config.json`):
-
-```json
-{
-  "youtube": {
-    "auth_file": "/home/yourusername/.config/omnishuffle/ytmusic_auth.json"
-  }
-}
-```
-
-Note: Use the full absolute path, not `~`.
-
-### General settings
-
-```json
-{
-  "general": {
-    "default_mode": "shuffle",
-    "sources": ["spotify", "pandora", "youtube"],
-    "volume": 80
-  }
-}
-```
-
-Available modes:
-- `shuffle` - Shuffle tracks from your playlists across all services
-- `radio` - Use each service's recommendation engine
-
-## Last.fm scrobbling
-
-OmniShuffle uses mpv for playback with the mpv-mpris plugin to expose MPRIS metadata. Combined with [rescrobbled](https://github.com/InputUsername/rescrobbled), all your tracks are automatically scrobbled to Last.fm.
-
-### Installing mpv-mpris
-
-```bash
-sudo pacman -S mpv-mpris
-```
-
-### Installing rescrobbled
-
-```bash
-yay -S rescrobbled-git
-```
+Features:
+- Real-time "now playing" updates
+- Automatic scrobbling (after 50% or 4 minutes)
+- Love track sync (pressing `+` loves on Last.fm + source service)
+- Smart recommendations based on your listening history
 
 ### Getting Last.fm API credentials
 
 1. Go to [Last.fm API account creation](https://www.last.fm/api/account/create)
+2. Fill in the form (Application name: `OmniShuffle`)
+3. Copy the **API Key** and **Shared Secret**
 
-2. Fill in the form:
-   - Application name: `OmniShuffle`
-   - Application description: Anything
-   - Callback URL: Leave empty
-   - Application homepage: Leave empty (or any URL)
+### Configuration
 
-3. Click **Submit**
-
-4. Copy the **API Key** and **Shared Secret**
-
-### Configuring rescrobbled
-
-Edit `~/.config/rescrobbled/config.toml`:
-
-```toml
-lastfm-key = "your_api_key"
-lastfm-secret = "your_shared_secret"
+```json
+{
+  "lastfm": {
+    "api_key": "your_api_key",
+    "api_secret": "your_shared_secret",
+    "username": "your_lastfm_username",
+    "password": "your_lastfm_password"
+  }
+}
 ```
 
-### Authenticating with Last.fm
+### How recommendations work
 
-Run rescrobbled once manually to log in:
+When Last.fm is configured, OmniShuffle uses it as the primary discovery engine:
 
-```bash
-rescrobbled
-```
+1. Fetches your loved tracks and top artists from Last.fm
+2. Finds similar tracks and artists using Last.fm's database
+3. Searches for these on YouTube Music
+4. Mixes with Pandora's personalized radio
+5. Shuffles everything together
 
-It will prompt for your Last.fm username and password. After successful login, press Ctrl+C.
+Press `l` to refresh recommendations anytime.
 
-### Enabling the service
+## Audio quality
 
-```bash
-systemctl --user enable --now rescrobbled
-```
-
-### Verifying it works
-
-Check the service status:
-
-```bash
-systemctl --user status rescrobbled
-```
-
-Watch the logs while playing music:
-
-```bash
-journalctl --user -u rescrobbled -f
-```
-
-All tracks played through OmniShuffle will now be scrobbled to Last.fm automatically.
+| Source | Quality | Notes |
+|--------|---------|-------|
+| Spotify Connect | 320kbps Vorbis | Requires spotifyd/librespot + Premium |
+| Spotify (YouTube fallback) | ~128-160kbps | When no Connect device available |
+| Pandora Free | 64kbps AAC | |
+| Pandora Plus | 192kbps | |
+| Pandora Premium | 320kbps | |
+| YouTube | ~128-160kbps Opus | Best available audio |
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   OmniShuffle                       │
-├──────────┬──────────┬──────────┬───────────────────┤
-│ Spotify  │ Pandora  │ YouTube  │ Local files       │
-│ (spotipy)│ (pydora) │ (ytmusic)│ (future)          │
-└────┬─────┴────┬─────┴────┬─────┴─────┬─────────────┘
-     └──────────┴──────────┴───────────┘
-                     │
-              ┌──────▼──────┐
-              │   Shuffle   │
+┌─────────────────────────────────────────────────────────────┐
+│                      OmniShuffle                            │
+├──────────┬──────────┬──────────┬──────────┬────────────────┤
+│ Spotify  │ Pandora  │ YouTube  │ Last.fm  │ spotifyd       │
+│ (spotipy)│ (pydora) │ (ytmusic)│ (pylast) │ (320kbps)      │
+└────┬─────┴────┬─────┴────┬─────┴────┬─────┴───────┬────────┘
+     │          │          │          │             │
+     │          │          │    recommendations    │
+     │          │          │          │         playback
+     └──────────┴──────────┴──────────┘             │
+                     │                              │
+              ┌──────▼──────┐                       │
+              │   Shuffle   │◄──────────────────────┘
               │    Queue    │
               └──────┬──────┘
                      │
-              ┌──────▼──────┐
-              │     mpv     │◄──── MPRIS ────► rescrobbled
-              │  (playback) │                       │
-              └─────────────┘                       ▼
-                                                Last.fm
+         ┌───────────┴───────────┐
+         ▼                       ▼
+   ┌──────────┐           ┌──────────┐
+   │   mpv    │           │ Spotify  │
+   │(Pandora/ │           │ Connect  │
+   │ YouTube) │           │ (320kbps)│
+   └────┬─────┘           └──────────┘
+        │
+        ▼
+   ┌──────────┐
+   │  pylast  │────► Last.fm (scrobble)
+   └──────────┘
 ```
 
 ## Dependencies
@@ -344,23 +307,28 @@ All tracks played through OmniShuffle will now be scrobbled to Last.fm automatic
 | pydora | Pandora API client |
 | ytmusicapi | YouTube Music API client |
 | yt-dlp | YouTube stream extraction |
-| readchar | Keyboard input handling |
-| rich | Terminal UI formatting |
-| httpx | HTTP client with SOCKS support |
+| pylast | Last.fm scrobbling |
+| readchar | Keyboard input |
+| rich | Terminal UI |
+| httpx | HTTP client with SOCKS |
 
 ## Troubleshooting
 
-### Multiple sources not loading
+### Spotify showing "via YouTube fallback"
 
-Check that each service is properly configured by looking at the startup messages. A green checkmark indicates successful connection.
-
-### Pandora not connecting
-
-Ensure Tor is running and accessible on port 9050:
+spotifyd/librespot is not running or not detected. Start it:
 
 ```bash
-sudo systemctl status tor
-curl --socks5 127.0.0.1:9050 https://check.torproject.org/api/ip
+systemctl --user start spotifyd
+```
+
+### Pandora "not available in this country"
+
+Tor might have selected a non-US exit node. OmniShuffle retries automatically, but you can also:
+
+```bash
+# Check your Tor exit IP
+curl --socks5 127.0.0.1:9050 https://ipinfo.io/country
 ```
 
 ### No audio output
@@ -371,25 +339,21 @@ Verify mpv is working:
 mpv --no-video "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
-### Scrobbling not working
+### Re-authorizing Spotify
 
-Check that rescrobbled is running and authenticated:
+If you need new scopes (e.g., after updating OmniShuffle):
 
 ```bash
-systemctl --user status rescrobbled
-journalctl --user -u rescrobbled -f
+rm ~/.config/omnishuffle/spotify_cache
+omnishuffle
 ```
 
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a pull request.
-
 ## Acknowledgments
 
 - [pianobar](https://github.com/PromyLOPh/pianobar) for the inspiration
-- [rescrobbled](https://github.com/InputUsername/rescrobbled) for MPRIS scrobbling
+- [spotifyd](https://github.com/Spotifyd/spotifyd) for Spotify Connect
 - All the API library maintainers
