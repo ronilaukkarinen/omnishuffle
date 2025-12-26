@@ -162,6 +162,7 @@ class OmniShuffle:
     def load_queue(self, mode: str = "shuffle", seed: Optional[str] = None):
         """Load tracks into queue from all sources."""
         self.queue = []
+        source_counts = {}
 
         for source in self.sources:
             try:
@@ -178,12 +179,15 @@ class OmniShuffle:
                         tracks = source.get_radio_tracks()
 
                 self.queue.extend(tracks)
+                source_counts[source.name] = len(tracks)
             except Exception as e:
                 console.print(f"[red]Error loading from {source.name}: {e}[/red]")
 
         if self.queue:
             random.shuffle(self.queue)
-            console.print(f"[green]Loaded {len(self.queue)} tracks from {len(self.sources)} sources[/green]")
+            # Build source breakdown string
+            breakdown = ", ".join(f"{name}: {count}" for name, count in source_counts.items())
+            console.print(f"[green]Loaded {len(self.queue)} tracks ({breakdown})[/green]")
         else:
             console.print("[red]No tracks loaded! Check your configuration.[/red]")
 

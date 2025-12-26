@@ -28,7 +28,7 @@ class Player:
             terminal=False,
             input_default_bindings=False,
             input_vo_keyboard=False,
-            scripts='/usr/lib/mpv-mpris/mpris.so',
+            script='/usr/lib/mpv-mpris/mpris.so',
         )
         self.current_track: Optional[Track] = None
         self.paused = False
