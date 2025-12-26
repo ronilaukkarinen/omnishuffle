@@ -29,8 +29,7 @@ class Player:
             input_default_bindings=False,
             input_vo_keyboard=False,
         )
-        # Load MPRIS script for scrobbling
-        self.mpv.command('load-script', '/usr/lib/mpv-mpris/mpris.so')
+        # MPRIS loaded via ~/.config/mpv/mpv.conf for scrobbling
         self.current_track: Optional[Track] = None
         self.paused = False
         self._on_track_end: Optional[Callable] = None

@@ -30,8 +30,8 @@ from omnishuffle.sources import SpotifySource, PandoraSource, YouTubeSource, Mus
 
 console = Console()
 
-# EQ-style animation using braille characters (two bars moving)
-SPINNER_FRAMES = ["⡀⠄", "⡄⠤", "⡆⠴", "⡇⠶", "⠇⠴", "⠆⠤", "⠄⠄", "⠤⡀"]
+# Simple playing indicator
+SPINNER_FRAMES = ["♪", "♫", "♪", "♫"]
 
 
 HELP_TEXT = """
