@@ -228,13 +228,15 @@ class Scrobbler:
             return []
 
     def get_track_tags(self, track: Track, limit: int = 3) -> list:
-        """Get genre tags for a track from Last.fm."""
-        if not self.enabled:
+        """Get genre tags for an artist from Last.fm."""
+        if not self.enabled or not track.artist:
             return []
 
         try:
-            lastfm_track = self.network.get_track(track.artist, track.title)
-            tags = lastfm_track.get_top_tags(limit=limit)
+            # Get artist tags instead of track tags - more reliable
+            artist_name = track.artist.split(',')[0].strip()  # Use first artist if multiple
+            lastfm_artist = self.network.get_artist(artist_name)
+            tags = lastfm_artist.get_top_tags(limit=limit)
             # Filter out empty tags and get names
             result = []
             for tag in tags:

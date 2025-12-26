@@ -24,6 +24,7 @@
 * Fix Spotify timestamp using local timer instead of API polling
 * Fix Pandora proxy for all API calls
 * Fix display flooding when pressing n or p
+* Fix YouTube showing 0:00 duration by using mpv duration
 * Show source breakdown in track count
 * EQ-style animation for playing indicator
 * Volume indicator uses dimmer text color
