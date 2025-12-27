@@ -283,6 +283,65 @@ class SpotifySource(MusicSource):
             pass
         return tracks[:limit]
 
+    def get_playlist_sample(self, playlist_id: str, sample_size: int = 10) -> List[Track]:
+        """Get a random sample of tracks from a playlist."""
+        if not self.sp:
+            return []
+
+        import random
+        try:
+            playlist = self.sp.playlist(playlist_id, fields="tracks.total")
+            total = playlist.get("tracks", {}).get("total", 0)
+            if total == 0:
+                return []
+
+            offset = random.randint(0, max(0, total - sample_size))
+            results = self.sp.playlist_tracks(playlist_id, limit=sample_size, offset=offset)
+
+            tracks = []
+            for item in results.get("items", []):
+                track_data = item.get("track")
+                if not track_data or not track_data.get("id"):
+                    continue
+                track = Track(
+                    title=track_data["name"],
+                    artist=", ".join(a["name"] for a in track_data["artists"]),
+                    album=track_data["album"]["name"],
+                    duration=track_data["duration_ms"] // 1000,
+                    url="",
+                    source="spotify",
+                    artwork_url=track_data["album"]["images"][0]["url"] if track_data["album"]["images"] else None,
+                    track_id=track_data["id"],
+                )
+                tracks.append(track)
+            return tracks
+        except Exception:
+            return []
+
+    def get_all_playlist_tracks(self, limit: int = 50) -> List[Track]:
+        """Get tracks from all user playlists and liked songs, shuffled."""
+        if not self.sp:
+            return []
+
+        import random
+        all_tracks = []
+
+        try:
+            liked = self.get_liked_tracks(limit=20, shuffle=True)
+            all_tracks.extend(liked)
+
+            playlists = self.get_playlists()
+            if playlists:
+                random.shuffle(playlists)
+                for playlist in playlists[:5]:
+                    sample = self.get_playlist_sample(playlist["id"], sample_size=10)
+                    all_tracks.extend(sample)
+
+            random.shuffle(all_tracks)
+            return all_tracks[:limit]
+        except Exception:
+            return []
+
     def get_radio_tracks(self, seed: Optional[str] = None) -> List[Track]:
         """Get recommendations based on seed."""
         if not self.sp:

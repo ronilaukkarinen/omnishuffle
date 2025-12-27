@@ -1,3 +1,8 @@
+### 1.0.5: 2025-12-27
+
+* Fix spacing after heart icon
+* Shuffle from all Spotify playlists and liked songs combined
+
 ### 1.0.4: 2025-12-26
 
 * Show play count from Last.fm after genres (x plays)

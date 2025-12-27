@@ -189,7 +189,7 @@ class OmniShuffle:
             quality = ""
 
         # Icons
-        heart = " \033[91m♥\033[0m" if self.current_loved else ""
+        heart = " \033[91m♥\033[0m " if self.current_loved else ""
         scrobbled = "\033[32m✓\033[0m" if self.current_scrobbled else ""
 
         # Genres and play count
@@ -355,14 +355,10 @@ class OmniShuffle:
                 self._loading_status(f"Loading {source.name.capitalize()} tracks...")
 
                 if source.name == "spotify":
-                    # Get liked songs directly (fast)
-                    tracks = source.get_liked_tracks(limit=50)
+                    # Get tracks from all playlists and liked songs
+                    tracks = source.get_all_playlist_tracks(limit=50)
                     if not tracks:
-                        # Fallback to playlists
-                        playlists = source.get_playlists()
-                        if playlists:
-                            playlist = random.choice(playlists)
-                            tracks = source.get_tracks_from_playlist(playlist["id"])
+                        tracks = source.get_liked_tracks(limit=50)
                 elif source.name == "pandora":
                     # Get radio tracks from QuickMix
                     tracks = source.get_radio_tracks(seed)
@@ -430,7 +426,7 @@ class OmniShuffle:
             self.current_scrobbled = False
             self.current_stats = {}
             self._current_position = 0.0
-            # Clear old status and reset for fresh print
+            # Clear old status
             if not self._status_first_print:
                 sys.stdout.write("\033[2K\033[A\033[2K\r")
                 sys.stdout.flush()
