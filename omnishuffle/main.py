@@ -189,7 +189,7 @@ class OmniShuffle:
             quality = ""
 
         # Icons
-        heart = " \033[91m♥\033[0m" if self.current_loved else ""
+        heart = " \033[91m♥\033[0m " if self.current_loved else ""
         scrobbled = "\033[32m✓\033[0m" if self.current_scrobbled else ""
 
         # Genres and play count
