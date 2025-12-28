@@ -1,3 +1,9 @@
+### 1.0.6: 2025-12-28
+
+* Add --spotify, --pandora, --youtube flags to play from specific sources
+* YouTube seeding now uses random liked song from entire Spotify library
+* Fix help text for ban (works for all sources, not just Pandora)
+
 ### 1.0.5: 2025-12-27
 
 * Fix spacing after heart icon

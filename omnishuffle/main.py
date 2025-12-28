@@ -48,7 +48,7 @@ HELP_TEXT = """
 [bold magenta]OmniShuffle Controls[/bold magenta]
 
 [magenta]n[/magenta]  Next track          [magenta]p[/magenta]  Pause/Resume
-[magenta]+[/magenta]  Love track          [magenta]-[/magenta]  Ban track (Pandora)
+[magenta]+[/magenta]  Love track          [magenta]-[/magenta]  Ban track
 [magenta]([/magenta]  Volume down         [magenta])[/magenta]  Volume up
 [magenta]s[/magenta]  Switch station      [magenta]S[/magenta]  Shuffle sources
 [magenta]l[/magenta]  Refresh Last.fm     [magenta]i[/magenta]  Track info
@@ -66,10 +66,11 @@ SOURCE_COLORS = {
 class OmniShuffle:
     """Main application class."""
 
-    def __init__(self):
+    def __init__(self, source_filter: Optional[List[str]] = None):
         self.config = load_config()
         self.player = Player()
         self.sources: List[MusicSource] = []
+        self.source_filter = source_filter  # Filter to specific sources
         self.queue: List[Track] = []
         self.history: List[Track] = []
         self.current_track: Optional[Track] = None
@@ -266,6 +267,10 @@ class OmniShuffle:
         """Initialize enabled music sources."""
         enabled = self.config.get("general", {}).get("sources", [])
 
+        # Apply source filter if specified via command line
+        if self.source_filter:
+            enabled = [s for s in enabled if s in self.source_filter]
+
         if "spotify" in enabled:
             src = SpotifySource(self.config.get("spotify", {}))
             if src.is_configured():
@@ -363,12 +368,12 @@ class OmniShuffle:
                     # Get radio tracks from QuickMix
                     tracks = source.get_radio_tracks(seed)
                 elif source.name == "youtube":
-                    # Use a seed from Spotify to get relevant recommendations
+                    # Use a random liked song from Spotify as seed
                     spotify_src = self._get_source("spotify")
                     if spotify_src:
-                        liked = spotify_src.get_liked_tracks(limit=10)
+                        liked = spotify_src.get_liked_tracks(limit=1, shuffle=True)
                         if liked:
-                            seed_track = random.choice(liked)
+                            seed_track = liked[0]
                             seed = f"{seed_track.artist} {seed_track.title}"
                             tracks = source.get_radio_tracks(seed)
                     if not tracks:
@@ -654,7 +659,25 @@ class OmniShuffle:
 
 def main():
     """Entry point."""
-    app = OmniShuffle()
+    import argparse
+    parser = argparse.ArgumentParser(description="OmniShuffle - Unified music shuffler")
+    parser.add_argument("--spotify", action="store_true", help="Only play from Spotify")
+    parser.add_argument("--pandora", action="store_true", help="Only play from Pandora")
+    parser.add_argument("--youtube", action="store_true", help="Only play from YouTube")
+    args = parser.parse_args()
+
+    # Determine which sources to use
+    source_filter = None
+    if args.spotify or args.pandora or args.youtube:
+        source_filter = []
+        if args.spotify:
+            source_filter.append("spotify")
+        if args.pandora:
+            source_filter.append("pandora")
+        if args.youtube:
+            source_filter.append("youtube")
+
+    app = OmniShuffle(source_filter=source_filter)
     app.run()
 
 
