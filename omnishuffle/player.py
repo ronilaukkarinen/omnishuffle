@@ -102,7 +102,7 @@ class Player:
         # Stop current playback before starting new track
         if self._using_spotify_connect and self._spotify_source:
             try:
-                self._spotify_source.pause_playback(self._spotify_device_id)
+                self._spotify_source.pause_playback()  # No device_id = pause active device
             except Exception:
                 pass
         try:
@@ -188,9 +188,15 @@ class Player:
     def stop(self):
         """Stop playback."""
         self._using_spotify_connect = False
-        if self._spotify_source and self._spotify_device_id:
-            self._spotify_source.pause_playback(self._spotify_device_id)
-        self.mpv.stop()
+        if self._spotify_source:
+            try:
+                self._spotify_source.pause_playback()  # No device_id = pause active device
+            except Exception:
+                pass
+        try:
+            self.mpv.stop()
+        except Exception:
+            pass
         self.current_track = None
 
     def set_volume(self, volume: int):
@@ -315,7 +321,7 @@ class Player:
         # Stop Spotify Connect playback
         if self._spotify_source:
             try:
-                self._spotify_source.pause_playback(self._spotify_device_id)
+                self._spotify_source.pause_playback()  # No device_id = pause active device
             except Exception:
                 pass
         # Stop and terminate mpv
