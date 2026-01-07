@@ -1,6 +1,8 @@
 ### 1.0.10: 2026-01-07
 
+* Auto-start spotifyd if not running on launch
 * Prefer platform-specific Spotify Connect device (OmniShuffle-Mac on macOS, OmniShuffle on Linux)
+* Fix Spotify not stopping when pressing n or q (now pauses active device regardless of state)
 
 ### 1.0.9: 2026-01-07
 
