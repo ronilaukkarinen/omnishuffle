@@ -1,4 +1,4 @@
-### 1.0.7: 2025-01-07
+### 1.0.7: 2026-01-07
 
 * Add macOS support (cross-platform Tor handling, Homebrew instructions)
 * Add `install.sh` interactive installer script for macOS, Arch, Debian/Ubuntu, Fedora
