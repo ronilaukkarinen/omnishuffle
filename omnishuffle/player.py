@@ -100,9 +100,10 @@ class Player:
         self._loading = True
 
         # Stop current playback before starting new track
-        if self._using_spotify_connect and self._spotify_source:
+        # Always try to pause Spotify (not just when _using_spotify_connect)
+        if self._spotify_source:
             try:
-                self._spotify_source.pause_playback()  # No device_id = pause active device
+                self._spotify_source.pause_playback()
             except Exception:
                 pass
         try:
