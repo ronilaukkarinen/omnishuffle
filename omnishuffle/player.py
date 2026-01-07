@@ -53,6 +53,7 @@ class Player:
             input_default_bindings=False,
             input_vo_keyboard=False,
             ytdl_format="bestaudio/best",
+            volume=100,
         )
 
         @self.mpv.property_observer('time-pos')

@@ -1,3 +1,7 @@
+### 1.0.8: 2026-01-07
+
+* Fix mpv volume not initialized causing no audio on YouTube/Pandora tracks
+
 ### 1.0.7: 2026-01-07
 
 * Add macOS support (cross-platform Tor handling, Homebrew instructions)

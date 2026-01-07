@@ -88,6 +88,10 @@ class OmniShuffle:
         self._current_position: float = 0.0  # Updated by player callback
         self._status_first_print = True  # Reset on track change
 
+        # Set initial volume from config
+        initial_volume = self.config.get("general", {}).get("volume", 80)
+        self.player.set_volume(initial_volume)
+
         self._init_sources()
         self._init_scrobbler()
         self._setup_callbacks()
