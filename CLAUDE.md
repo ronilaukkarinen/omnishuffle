@@ -50,6 +50,7 @@ Config file: `~/.config/omnishuffle/config.json`
 
 ## Commits and code style
 
+- 2 space indents
 - One logical change per commit
 - Keep commit messages concise (one line), use sentence case
 - Update CHANGELOG.md for user-facing changes

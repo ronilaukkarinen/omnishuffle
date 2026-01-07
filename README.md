@@ -1,6 +1,8 @@
 # 📻 OmniShuffle
 
 ![Python](https://img.shields.io/badge/Python-4584b6?style=for-the-badge&logo=python&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Spotify](https://img.shields.io/badge/Spotify-1db954?style=for-the-badge&logo=spotify&logoColor=white)
 ![Pandora](https://img.shields.io/badge/Pandora-5D47DB?style=for-the-badge&logo=pandora&logoColor=white)
 ![YouTube Music](https://img.shields.io/badge/YouTube%20Music-ff0000?style=for-the-badge&logo=youtube&logoColor=white)
@@ -35,20 +37,45 @@ A unified command-line music shuffler that combines **Spotify, Pandora, and YouT
 
 ## Installation
 
-### Using pipx (recommended)
+### Quick install (recommended)
+
+Run the interactive installer that handles dependencies and configuration:
 
 ```bash
+git clone https://github.com/ronilaukkarinen/omnishuffle.git
+cd omnishuffle
+./install.sh
+```
+
+The installer automatically detects your OS (macOS, Arch, Debian/Ubuntu, Fedora) and installs all required dependencies.
+
+### Manual installation
+
+#### macOS
+
+```bash
+brew install mpv ffmpeg tor pipx
 git clone https://github.com/ronilaukkarinen/omnishuffle.git
 cd omnishuffle
 pipx install -e .
 ```
 
-### Using pip
+#### Arch Linux
 
 ```bash
+sudo pacman -S mpv ffmpeg tor python-pipx
 git clone https://github.com/ronilaukkarinen/omnishuffle.git
 cd omnishuffle
-pip install -e .
+pipx install -e .
+```
+
+#### Debian/Ubuntu
+
+```bash
+sudo apt install mpv ffmpeg tor pipx
+git clone https://github.com/ronilaukkarinen/omnishuffle.git
+cd omnishuffle
+pipx install -e .
 ```
 
 ## Usage
@@ -142,8 +169,13 @@ On first run, a browser opens for authorization.
 For true 320kbps Spotify quality, install spotifyd:
 
 ```bash
+# macOS
+brew install spotifyd
+brew services start spotifyd
+
 # Arch Linux
 yay -S spotifyd
+systemctl --user enable --now spotifyd
 
 # Or install librespot directly
 yay -S librespot
@@ -158,13 +190,8 @@ password = "your_spotify_password"
 device_name = "OmniShuffle"
 device_type = "computer"
 bitrate = 320
-backend = "pulseaudio"
-```
-
-Start spotifyd:
-
-```bash
-systemctl --user enable --now spotifyd
+backend = "pulseaudio"  # Linux
+# backend = "rodio"     # macOS
 ```
 
 OmniShuffle will automatically detect the spotifyd device and use it for Spotify tracks at 320kbps. You'll see:
@@ -185,7 +212,10 @@ Pandora is only available in the USA. For users outside the USA, OmniShuffle aut
 
 ### Creating a Pandora account (outside USA)
 
-1. Install Tor: `sudo pacman -S tor`
+1. Install Tor:
+   - macOS: `brew install tor`
+   - Arch: `sudo pacman -S tor`
+   - Debian/Ubuntu: `sudo apt install tor`
 2. Use Tor Browser or configure your browser to use SOCKS5 proxy `127.0.0.1:9050`
 3. Go to [pandora.com](https://www.pandora.com) and create a free account
 4. Create some stations based on artists/songs you like

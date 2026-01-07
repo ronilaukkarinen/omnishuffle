@@ -1,3 +1,8 @@
+### 1.0.7: 2025-01-07
+
+* Add macOS support (cross-platform Tor handling, Homebrew instructions)
+* Add `install.sh` interactive installer script for macOS, Arch, Debian/Ubuntu, Fedora
+
 ### 1.0.6: 2025-12-28
 
 * Add --spotify, --pandora, --youtube flags to play from specific sources

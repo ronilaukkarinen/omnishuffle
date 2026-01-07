@@ -1,6 +1,7 @@
 """Pandora music source using pydora with Tor proxy support."""
 
 import os
+import platform
 import socket
 import subprocess
 import time
@@ -13,15 +14,16 @@ from pathlib import Path
 from omnishuffle.player import Track
 from omnishuffle.sources.base import MusicSource
 
-# Custom torrc for US exit nodes only
-TORRC_CONTENT = """ExitNodes {US}
+# Custom torrc for US exit nodes only (DataDirectory set dynamically)
+# Note: {{US}} is escaped so .format() doesn't interpret it
+TORRC_TEMPLATE = """ExitNodes {{US}}
 StrictNodes 1
 CircuitBuildTimeout 10
 NumEntryGuards 6
 KeepalivePeriod 60
 NewCircuitPeriod 10
 SOCKSPort 9050
-DataDirectory /tmp/omnishuffle_tor_data
+DataDirectory {data_dir}
 ControlPort 9051
 """
 
@@ -84,12 +86,20 @@ class PandoraSource(MusicSource):
     @classmethod
     def _stop_existing_tor(cls):
         """Stop any existing Tor processes."""
-        # Stop systemd service
-        subprocess.run(
-            ['sudo', 'systemctl', 'stop', 'tor'],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        if platform.system() == "Darwin":
+            # macOS: use brew services or launchctl
+            subprocess.run(
+                ['brew', 'services', 'stop', 'tor'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            # Linux: use systemd
+            subprocess.run(
+                ['sudo', 'systemctl', 'stop', 'tor'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
         # Kill any remaining tor processes
         subprocess.run(
             ['pkill', '-9', 'tor'],
@@ -144,13 +154,14 @@ class PandoraSource(MusicSource):
             return True
 
         try:
-            # Create data directory
-            data_dir = Path("/tmp/omnishuffle_tor_data")
+            # Create data directory in temp (works on both Linux and macOS)
+            data_dir = Path(tempfile.gettempdir()) / "omnishuffle_tor_data"
             data_dir.mkdir(exist_ok=True)
 
             # Create custom torrc with US exit nodes
             torrc_path = Path(tempfile.gettempdir()) / "omnishuffle_torrc"
-            torrc_path.write_text(TORRC_CONTENT)
+            torrc_content = TORRC_TEMPLATE.format(data_dir=str(data_dir))
+            torrc_path.write_text(torrc_content)
             cls._torrc_file = str(torrc_path)
 
             # Start Tor with custom config
