@@ -99,13 +99,16 @@ class Player:
         # Mark as loading - position will return 0 until playback starts
         self._loading = True
 
-        # Only pause Spotify Connect if switching to a non-Spotify source
-        # (start_playback will automatically override if staying on Spotify)
-        if self._using_spotify_connect and self._spotify_source and track.source != "spotify":
+        # Stop current playback before starting new track
+        if self._using_spotify_connect and self._spotify_source:
             try:
                 self._spotify_source.pause_playback(self._spotify_device_id)
             except Exception:
                 pass
+        try:
+            self.mpv.command('stop')
+        except Exception:
+            pass
         self._using_spotify_connect = False
         self._using_librespot = False
 
