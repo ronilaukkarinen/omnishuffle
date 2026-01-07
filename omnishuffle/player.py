@@ -136,8 +136,12 @@ class Player:
                     return
 
         # Try Spotify Connect for Spotify tracks
-        if track.source == "spotify" and self._spotify_device_id and self._spotify_source:
-            if self._spotify_source.play_track_on_device(track, self._spotify_device_id):
+        if track.source == "spotify" and self._spotify_source:
+            # Refresh device ID to ensure we use the correct platform-specific device
+            device = self._spotify_source.get_connect_device()
+            if device:
+                self._spotify_device_id = device.get("id")
+            if self._spotify_device_id and self._spotify_source.play_track_on_device(track, self._spotify_device_id):
                 # Stop mpv if it was playing (Pandora/YouTube)
                 try:
                     self.mpv.command('stop')

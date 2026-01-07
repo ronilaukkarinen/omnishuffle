@@ -4,6 +4,7 @@
 import os
 import platform
 import shutil
+import subprocess
 import sys
 import random
 import threading
@@ -276,6 +277,50 @@ class OmniShuffle:
         console.print("[yellow]![/yellow] Spotify: Open phone → Spotify → Devices → Select 'OmniShuffle'")
         # Don't wait - continue with other sources, Spotify tracks will be skipped
 
+    def _ensure_spotifyd_running(self):
+        """Ensure spotifyd is running for Spotify Connect playback."""
+        # Check if spotifyd is already running
+        try:
+            result = subprocess.run(
+                ["pgrep", "-x", "spotifyd"],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                return  # Already running
+        except Exception:
+            pass
+
+        # Try to start spotifyd
+        config_path = os.path.expanduser("~/.config/spotifyd/spotifyd.conf")
+        if not os.path.exists(config_path):
+            return  # No config, can't start
+
+        try:
+            if platform.system() == "Darwin":
+                # macOS: start with config path
+                subprocess.Popen(
+                    ["spotifyd", "--config-path", config_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+            else:
+                # Linux: use systemctl if available, otherwise direct start
+                result = subprocess.run(
+                    ["systemctl", "--user", "is-active", "spotifyd"],
+                    capture_output=True,
+                    text=True
+                )
+                if result.returncode != 0:
+                    subprocess.run(
+                        ["systemctl", "--user", "start", "spotifyd"],
+                        capture_output=True
+                    )
+            # Give it time to register with Spotify
+            time.sleep(2)
+        except Exception:
+            pass
+
     def _init_sources(self):
         """Initialize enabled music sources."""
         enabled = self.config.get("general", {}).get("sources", [])
@@ -285,6 +330,7 @@ class OmniShuffle:
             enabled = [s for s in enabled if s in self.source_filter]
 
         if "spotify" in enabled:
+            self._ensure_spotifyd_running()
             src = SpotifySource(self.config.get("spotify", {}))
             if src.is_configured():
                 self.sources.append(src)
