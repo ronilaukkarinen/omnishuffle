@@ -2,12 +2,21 @@
 """OmniShuffle - Unified music shuffler with pianobar-style controls."""
 
 import os
+import platform
 import shutil
 import sys
 import random
 import threading
 import time
 from typing import List, Optional
+
+# Hide dock icon on macOS
+if platform.system() == "Darwin":
+    try:
+        from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+        NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+    except ImportError:
+        pass
 
 try:
     import readchar

@@ -1,3 +1,7 @@
+### 1.0.9: 2026-01-07
+
+* Hide Python dock icon on macOS
+
 ### 1.0.8: 2026-01-07
 
 * Fix mpv volume not initialized causing no audio on YouTube/Pandora tracks

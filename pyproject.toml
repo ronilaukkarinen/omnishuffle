@@ -14,6 +14,7 @@ dependencies = [
     "pysocks",
     "httpx[socks]",
     "pylast",
+    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",
 ]
 
 [project.scripts]
