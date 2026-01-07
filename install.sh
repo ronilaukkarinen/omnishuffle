@@ -170,14 +170,18 @@ setup_spotifyd() {
     if [[ -n "$spotify_username" && -n "$spotify_password" ]]; then
       # Create config with credentials
       local backend="pulseaudio"
-      [[ "$os" == "macos" ]] && backend="portaudio"
+      local device_name="OmniShuffle"
+      if [[ "$os" == "macos" ]]; then
+        backend="portaudio"
+        device_name="OmniShuffle-Mac"
+      fi
 
       cat > "$HOME/.config/spotifyd/spotifyd.conf" << EOF
 [global]
 username = "$spotify_username"
 password = "$spotify_password"
 backend = "$backend"
-device_name = "OmniShuffle"
+device_name = "$device_name"
 bitrate = 320
 volume_normalisation = true
 normalisation_pregain = -10
@@ -190,12 +194,16 @@ EOF
   # Create config without credentials if we have credentials.json
   if [[ -f "$HOME/.config/spotifyd/credentials.json" && ! -f "$HOME/.config/spotifyd/spotifyd.conf" ]]; then
     local backend="pulseaudio"
-    [[ "$os" == "macos" ]] && backend="portaudio"
+    local device_name="OmniShuffle"
+    if [[ "$os" == "macos" ]]; then
+      backend="portaudio"
+      device_name="OmniShuffle-Mac"
+    fi
 
     cat > "$HOME/.config/spotifyd/spotifyd.conf" << EOF
 [global]
 backend = "$backend"
-device_name = "OmniShuffle"
+device_name = "$device_name"
 bitrate = 320
 volume_normalisation = true
 normalisation_pregain = -10

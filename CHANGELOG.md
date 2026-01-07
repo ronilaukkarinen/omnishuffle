@@ -1,3 +1,7 @@
+### 1.0.10: 2026-01-07
+
+* Prefer platform-specific Spotify Connect device (OmniShuffle-Mac on macOS, OmniShuffle on Linux)
+
 ### 1.0.9: 2026-01-07
 
 * Hide Python dock icon on macOS

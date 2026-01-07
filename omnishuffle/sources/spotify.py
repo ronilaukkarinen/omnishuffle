@@ -406,12 +406,28 @@ class SpotifySource(MusicSource):
 
     def get_connect_device(self) -> Optional[dict]:
         """Find a suitable Spotify Connect device (prefer librespot/spotifyd)."""
+        import platform
         devices = self.get_devices()
-        # Prefer librespot/spotifyd devices
+        omnishuffle_devices = []
+
+        # Collect OmniShuffle/librespot/spotifyd devices
         for device in devices:
             name = device.get("name", "").lower()
             if "librespot" in name or "spotifyd" in name or "omnishuffle" in name:
-                return device
+                omnishuffle_devices.append(device)
+
+        # Prefer device matching current platform
+        if omnishuffle_devices:
+            is_mac = platform.system() == "Darwin"
+            for device in omnishuffle_devices:
+                name = device.get("name", "").lower()
+                if is_mac and "mac" in name:
+                    return device
+                elif not is_mac and "mac" not in name:
+                    return device
+            # Fall back to first OmniShuffle device
+            return omnishuffle_devices[0]
+
         # Fall back to any active device
         for device in devices:
             if device.get("is_active"):
