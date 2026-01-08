@@ -368,7 +368,7 @@ class OmniShuffle:
                 console.print("[green]✓[/green] YouTube Music available")
 
     def _init_scrobbler(self):
-        """Initialize Last.fm scrobbler."""
+        """Initialize Last.fm scrobbler. Exits if Last.fm fails."""
         lastfm_config = self.config.get("lastfm", {})
         api_key = lastfm_config.get("api_key")
         api_secret = lastfm_config.get("api_secret")
@@ -376,11 +376,12 @@ class OmniShuffle:
         password = lastfm_config.get("password")
 
         if not all([api_key, api_secret, username, password]):
-            return
+            console.print("[red]✗[/red] Last.fm not configured (required)")
+            sys.exit(1)
 
         if not PYLAST_AVAILABLE:
-            console.print("[yellow]![/yellow] pylast not installed, scrobbling disabled")
-            return
+            console.print("[red]✗[/red] pylast not installed (required for Last.fm)")
+            sys.exit(1)
 
         password_hash = pylast.md5(password)
         self.scrobbler = Scrobbler(api_key, api_secret, username, password_hash)
@@ -390,6 +391,7 @@ class OmniShuffle:
         else:
             error = getattr(self.scrobbler, '_last_error', 'unknown error')
             console.print(f"[red]✗[/red] Last.fm: {error}")
+            sys.exit(1)
 
     def _setup_callbacks(self):
         """Set up player callbacks."""
