@@ -1,3 +1,7 @@
+### 1.1.0: 2026-01-08
+
+* Suppress Spotify API HTTP errors from flooding console output
+
 ### 1.0.10: 2026-01-07
 
 * Auto-start spotifyd if not running on launch

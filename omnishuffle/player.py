@@ -100,12 +100,8 @@ class Player:
         self._loading = True
 
         # Stop current playback before starting new track
-        # Always try to pause Spotify (not just when _using_spotify_connect)
         if self._spotify_source:
-            try:
-                self._spotify_source.pause_playback()
-            except Exception:
-                pass
+            self._spotify_source.pause_playback()
         try:
             self.mpv.command('stop')
         except Exception:
@@ -190,10 +186,7 @@ class Player:
         """Stop playback."""
         self._using_spotify_connect = False
         if self._spotify_source:
-            try:
-                self._spotify_source.pause_playback()  # No device_id = pause active device
-            except Exception:
-                pass
+            self._spotify_source.pause_playback()
         try:
             self.mpv.stop()
         except Exception:
@@ -321,10 +314,7 @@ class Player:
         """Clean shutdown."""
         # Stop Spotify Connect playback
         if self._spotify_source:
-            try:
-                self._spotify_source.pause_playback()  # No device_id = pause active device
-            except Exception:
-                pass
+            self._spotify_source.pause_playback()
         # Stop and terminate mpv
         try:
             self.mpv.command('stop')

@@ -1,5 +1,6 @@
 """Spotify music source using spotipy and librespot for direct streaming."""
 
+import logging
 import os
 import subprocess
 import tempfile
@@ -8,6 +9,10 @@ from typing import List, Optional
 
 from omnishuffle.player import Track
 from omnishuffle.sources.base import MusicSource
+
+# Suppress spotipy HTTP error logging
+logging.getLogger("spotipy.client").setLevel(logging.CRITICAL)
+logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 
 try:
     import spotipy

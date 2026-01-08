@@ -676,6 +676,7 @@ class OmniShuffle:
 
                 if key == 'q':
                     self.running = False
+                    break
                 elif key == 'n':
                     self.play_next()
                 elif key == 'p' or key == ' ':
