@@ -4,6 +4,7 @@
 * Change default volume from 80% to 100%
 * Require Last.fm to be configured and working to start
 * Fix volume not persisting when track changes
+* Show song title and artist in love message
 
 ### 1.0.10: 2026-01-07
 

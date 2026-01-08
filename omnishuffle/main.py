@@ -97,6 +97,7 @@ class OmniShuffle:
         self._playing_next = False  # Guard against concurrent play_next calls
         self._current_position: float = 0.0  # Updated by player callback
         self._status_first_print = True  # Reset on track change
+        self._pause_status = False  # Pause status updates while printing messages
 
         # Set initial volume from config
         initial_volume = self.config.get("general", {}).get("volume", 100)
@@ -241,7 +242,7 @@ class OmniShuffle:
         while self.running:
             self.spinner_idx += 1
 
-            if self.current_track:
+            if self.current_track and not self._pause_status:
                 # Update position from player
                 self._current_position = self.player.position
 
@@ -553,6 +554,7 @@ class OmniShuffle:
         if not self.current_track:
             return
 
+        self._pause_status = True
         self._clear_status()
 
         loved_on = []
@@ -568,16 +570,19 @@ class OmniShuffle:
 
         if loved_on:
             services = ", ".join(loved_on)
-            console.print(f"\n[red]♥ Loved on {services}[/red]")
+            console.print(f"[red]♥ Loved {self.current_track.title} by {self.current_track.artist} on {services}[/red]")
             self.current_loved = True
         else:
-            console.print("\n[yellow]Love failed[/yellow]")
+            console.print("[yellow]Love failed[/yellow]")
+        console.print()
+        self._pause_status = False
 
     def ban_current(self):
         """Ban/dislike current track."""
         if not self.current_track:
             return
 
+        self._pause_status = True
         self._clear_status()
 
         # Always save to local ban list
@@ -590,6 +595,7 @@ class OmniShuffle:
 
         console.print(f"[red]✗ Banned:[/red] {self.current_track.artist} - {self.current_track.title}")
         console.print()
+        self._pause_status = False
         self.play_next()
 
     def toggle_pause(self):
