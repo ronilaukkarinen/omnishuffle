@@ -1,6 +1,7 @@
 ### 1.1.0: 2026-01-08
 
 * Suppress Spotify API HTTP errors from flooding console output
+* Change default volume from 80% to 100%
 
 ### 1.0.10: 2026-01-07
 

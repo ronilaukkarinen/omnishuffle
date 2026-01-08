@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
     "general": {
         "default_mode": "shuffle",  # shuffle, radio
         "sources": ["spotify", "pandora", "youtube"],  # enabled sources
-        "volume": 80,
+        "volume": 100,
     },
 }
 

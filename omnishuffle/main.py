@@ -99,7 +99,7 @@ class OmniShuffle:
         self._status_first_print = True  # Reset on track change
 
         # Set initial volume from config
-        initial_volume = self.config.get("general", {}).get("volume", 80)
+        initial_volume = self.config.get("general", {}).get("volume", 100)
         self.player.set_volume(initial_volume)
 
         self._init_sources()

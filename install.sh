@@ -314,7 +314,7 @@ create_config() {
   "general": {
     "default_mode": "shuffle",
     "sources": [$sources_json],
-    "volume": 80
+    "volume": 100
   },
   "spotify": {
     "client_id": "$spotify_client_id",

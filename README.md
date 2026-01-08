@@ -128,7 +128,7 @@ Configuration is stored in `~/.config/omnishuffle/config.json`.
   "general": {
     "default_mode": "shuffle",
     "sources": ["spotify", "pandora", "youtube"],
-    "volume": 80
+    "volume": 100
   },
   "spotify": {
     "client_id": "your_client_id",
