@@ -43,6 +43,7 @@ class Player:
         self._spotify_start_time: Optional[float] = None  # When playback started
         self._spotify_paused_position: float = 0.0  # Position when paused
         self._temp_file: Optional[str] = None  # For librespot temp files
+        self._current_volume: int = 100  # Persisted volume across track changes
 
     def _create_mpv(self):
         """Create a fresh MPV instance."""
@@ -163,6 +164,7 @@ class Player:
             url = f"ytdl://ytsearch1:{track.artist} - {track.title}"
 
         self.mpv.command('loadfile', url, 'replace')
+        self.mpv.volume = self._current_volume
         self.mpv.pause = False
         # _loading will be cleared when time-pos becomes valid
 
@@ -196,17 +198,18 @@ class Player:
     def set_volume(self, volume: int):
         """Set volume (0-100)."""
         volume = max(0, min(100, volume))
+        self._current_volume = volume
         self.mpv.volume = volume
         if self._using_spotify_connect and self._spotify_source:
             self._spotify_source.set_volume(volume, self._spotify_device_id)
 
     def volume_up(self, step: int = 5):
         """Increase volume."""
-        self.set_volume(int(self.mpv.volume or 50) + step)
+        self.set_volume(self._current_volume + step)
 
     def volume_down(self, step: int = 5):
         """Decrease volume."""
-        self.set_volume(int(self.mpv.volume or 50) - step)
+        self.set_volume(self._current_volume - step)
 
     @property
     def position(self) -> float:
@@ -244,7 +247,7 @@ class Player:
     @property
     def volume(self) -> int:
         """Current volume."""
-        return int(self.mpv.volume or 50)
+        return self._current_volume
 
     @property
     def is_spotify_connect(self) -> bool:
