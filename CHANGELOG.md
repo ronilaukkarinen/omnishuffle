@@ -1,3 +1,8 @@
+### 1.1.2: 2026-01-13
+
+* Set Spotify volume when track starts playing (fixes quieter Spotify playback)
+* Fix Spotify not stopping on quit or track change (pass device_id to pause)
+
 ### 1.1.1: 2026-01-13
 
 * Require platform-specific Spotify device, exit if not found (never cross-platform fallback)

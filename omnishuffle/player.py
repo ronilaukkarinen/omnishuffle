@@ -101,8 +101,8 @@ class Player:
         self._loading = True
 
         # Stop current playback before starting new track
-        if self._spotify_source:
-            self._spotify_source.pause_playback()
+        if self._spotify_source and self._spotify_device_id:
+            self._spotify_source.pause_playback(self._spotify_device_id)
         try:
             self.mpv.command('stop')
         except Exception:
@@ -153,6 +153,8 @@ class Player:
                 # Start local timer for position tracking
                 self._spotify_start_time = time.time()
                 self._spotify_paused_position = 0.0
+                # Set volume on Spotify device
+                self._spotify_source.set_volume(self._current_volume, self._spotify_device_id)
                 return
 
         # Play via mpv (YouTube search for Spotify, direct URL for others)
@@ -316,8 +318,8 @@ class Player:
     def shutdown(self):
         """Clean shutdown."""
         # Stop Spotify Connect playback
-        if self._spotify_source:
-            self._spotify_source.pause_playback()
+        if self._spotify_source and self._spotify_device_id:
+            self._spotify_source.pause_playback(self._spotify_device_id)
         # Stop and terminate mpv
         try:
             self.mpv.command('stop')
