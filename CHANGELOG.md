@@ -1,3 +1,8 @@
+### 1.1.1: 2026-01-13
+
+* Require platform-specific Spotify device, exit if not found (never cross-platform fallback)
+* Improve YouTube shuffle diversity by using multiple seed songs instead of one
+
 ### 1.1.0: 2026-01-08
 
 * Suppress Spotify API HTTP errors from flooding console output
@@ -5,7 +10,6 @@
 * Require Last.fm to be configured and working to start
 * Fix volume not persisting when track changes
 * Show song title and artist in love message
-* Require platform-specific Spotify device, exit if not found (never cross-platform fallback)
 
 ### 1.0.10: 2026-01-07
 

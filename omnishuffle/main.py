@@ -433,14 +433,17 @@ class OmniShuffle:
                     # Get radio tracks from QuickMix
                     tracks = source.get_radio_tracks(seed)
                 elif source.name == "youtube":
-                    # Use a random liked song from Spotify as seed
+                    # Use multiple random seeds for variety (not just one genre)
+                    tracks = []
                     spotify_src = self._get_source("spotify")
                     if spotify_src:
-                        liked = spotify_src.get_liked_tracks(limit=1, shuffle=True)
-                        if liked:
-                            seed_track = liked[0]
+                        # Get 5 different seed songs, 10 tracks from each
+                        liked = spotify_src.get_liked_tracks(limit=5, shuffle=True)
+                        for seed_track in liked:
                             seed = f"{seed_track.artist} {seed_track.title}"
-                            tracks = source.get_radio_tracks(seed)
+                            radio_tracks = source.get_radio_tracks(seed)
+                            if radio_tracks:
+                                tracks.extend(radio_tracks[:10])
                     if not tracks:
                         continue
                 else:
@@ -478,6 +481,7 @@ class OmniShuffle:
                 self.load_queue()
 
             self._refill_pandora_if_needed()
+            self._refill_youtube_if_needed()
 
             if not self.queue:
                 console.print("[red]Queue empty, nothing to play[/red]")
@@ -539,6 +543,32 @@ class OmniShuffle:
                         if new_tracks:
                             # Insert randomly into queue
                             for track in new_tracks:
+                                pos = random.randint(0, max(1, len(self.queue)))
+                                self.queue.insert(pos, track)
+                    except Exception:
+                        pass
+                threading.Thread(target=fetch, daemon=True).start()
+
+    def _refill_youtube_if_needed(self):
+        """Fetch more YouTube tracks with diverse seeds when running low."""
+        youtube_in_queue = sum(1 for t in self.queue if t.source == "youtube")
+        if youtube_in_queue < 5:
+            youtube_src = self._get_source("youtube")
+            spotify_src = self._get_source("spotify")
+            if youtube_src and spotify_src:
+                def fetch():
+                    try:
+                        # Get 3 different seeds for variety
+                        liked = spotify_src.get_liked_tracks(limit=3, shuffle=True)
+                        new_tracks = []
+                        for seed_track in liked:
+                            seed = f"{seed_track.artist} {seed_track.title}"
+                            radio_tracks = youtube_src.get_radio_tracks(seed)
+                            if radio_tracks:
+                                new_tracks.extend(radio_tracks[:10])
+                        # Insert randomly into queue
+                        for track in new_tracks:
+                            if not is_banned(track.artist, track.title):
                                 pos = random.randint(0, max(1, len(self.queue)))
                                 self.queue.insert(pos, track)
                     except Exception:
