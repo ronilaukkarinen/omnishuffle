@@ -345,7 +345,10 @@ class OmniShuffle:
                     if device:
                         console.print(f"[green]✓[/green] Spotify connected (320kbps via {device.get('name', 'Connect')})")
                     else:
-                        console.print("[green]✓[/green] Spotify connected (via YouTube)")
+                        import platform
+                        expected = "OmniShuffle-Mac" if platform.system() == "Darwin" else "OmniShuffle"
+                        console.print(f"[red]✗[/red] Spotify device '{expected}' not found. Is spotifyd running?")
+                        sys.exit(1)
             else:
                 console.print("[red]✗[/red] Spotify not configured")
 

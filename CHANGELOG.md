@@ -5,6 +5,7 @@
 * Require Last.fm to be configured and working to start
 * Fix volume not persisting when track changes
 * Show song title and artist in love message
+* Require platform-specific Spotify device, exit if not found (never cross-platform fallback)
 
 ### 1.0.10: 2026-01-07
 

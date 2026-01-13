@@ -421,7 +421,7 @@ class SpotifySource(MusicSource):
             if "librespot" in name or "spotifyd" in name or "omnishuffle" in name:
                 omnishuffle_devices.append(device)
 
-        # Prefer device matching current platform
+        # Only use device matching current platform (never cross-platform)
         if omnishuffle_devices:
             is_mac = platform.system() == "Darwin"
             for device in omnishuffle_devices:
@@ -430,15 +430,11 @@ class SpotifySource(MusicSource):
                     return device
                 elif not is_mac and "mac" not in name:
                     return device
-            # Fall back to first OmniShuffle device
-            return omnishuffle_devices[0]
+            # Don't fall back to wrong platform - return None to skip Spotify Connect
+            return None
 
-        # Fall back to any active device
-        for device in devices:
-            if device.get("is_active"):
-                return device
-        # Fall back to first available device
-        return devices[0] if devices else None
+        # No OmniShuffle device found - return None (will use YouTube fallback)
+        return None
 
     def play_track_on_device(self, track: Track, device_id: str) -> bool:
         """Play a track on a Spotify Connect device."""
