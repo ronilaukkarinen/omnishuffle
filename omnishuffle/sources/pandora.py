@@ -15,6 +15,7 @@ from omnishuffle.player import Track
 from omnishuffle.sources.base import MusicSource
 
 # Custom torrc for US exit nodes only (DataDirectory set dynamically)
+# Uses port 9150/9151 to avoid conflicts with system Tor on 9050/9051
 # Note: {{US}} is escaped so .format() doesn't interpret it
 TORRC_TEMPLATE = """ExitNodes {{US}}
 StrictNodes 1
@@ -22,10 +23,14 @@ CircuitBuildTimeout 10
 NumEntryGuards 6
 KeepalivePeriod 60
 NewCircuitPeriod 10
-SOCKSPort 9050
+SOCKSPort 9150
 DataDirectory {data_dir}
-ControlPort 9051
+ControlPort 9151
 """
+
+# OmniShuffle Tor ports (different from system Tor 9050/9051)
+TOR_SOCKS_PORT = 9150
+TOR_CONTROL_PORT = 9151
 
 try:
     from pandora.clientbuilder import SettingsDictBuilder
@@ -72,12 +77,12 @@ class PandoraSource(MusicSource):
             os.environ.pop(var, None)
 
     @classmethod
-    def _is_tor_running(cls, port: int = 9050) -> bool:
-        """Check if Tor is running on the specified port."""
+    def _is_tor_running(cls) -> bool:
+        """Check if our Tor is running on the OmniShuffle port."""
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(1)
-            result = sock.connect_ex(('127.0.0.1', port))
+            result = sock.connect_ex(('127.0.0.1', TOR_SOCKS_PORT))
             sock.close()
             return result == 0
         except Exception:
@@ -118,7 +123,7 @@ class PandoraSource(MusicSource):
         try:
             import httpx
             # Get exit IP via ipify (Tor-friendly)
-            with httpx.Client(proxy="socks5://127.0.0.1:9050", timeout=10) as client:
+            with httpx.Client(proxy=f"socks5://127.0.0.1:{TOR_SOCKS_PORT}", timeout=10) as client:
                 response = client.get("https://api.ipify.org")
                 exit_ip = response.text.strip()
 
@@ -136,7 +141,7 @@ class PandoraSource(MusicSource):
         """Request a new Tor circuit via control port."""
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect(("127.0.0.1", 9051))
+            s.connect(("127.0.0.1", TOR_CONTROL_PORT))
             s.send(b"AUTHENTICATE\r\n")
             s.recv(1024)
             s.send(b"SIGNAL NEWNYM\r\n")
@@ -219,11 +224,13 @@ class PandoraSource(MusicSource):
             return
 
         try:
-            # Start Tor if proxy is configured
-            if proxy and "9050" in proxy:
+            # Start our own Tor with US exit nodes if proxy is configured
+            if proxy and ("9050" in proxy or "9150" in proxy):
                 if not self._start_tor():
                     self.error_message = "could not start Tor"
                     return
+                # Use our Tor on port 9150, not the system Tor
+                proxy = f"socks5://127.0.0.1:{TOR_SOCKS_PORT}"
 
             # Store proxy for later API calls
             PandoraSource._proxy = proxy
@@ -232,7 +239,7 @@ class PandoraSource(MusicSource):
             self._set_proxy()
 
             # Retry login with different circuits if geo-blocked
-            max_retries = 5
+            max_retries = 3
             for attempt in range(max_retries):
                 try:
                     self.client = SettingsDictBuilder(PANDORA_PARTNER).build()
