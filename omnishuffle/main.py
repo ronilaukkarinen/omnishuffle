@@ -100,6 +100,7 @@ class OmniShuffle:
         self._status_first_print = True  # Reset on track change
         self._pause_status = False  # Pause status updates while printing messages
         self.mpris: Optional[MPRISService] = None
+        self._mpris_action: Optional[str] = None  # Thread-safe action from MPRIS
 
         # Set initial volume from config
         initial_volume = self.config.get("general", {}).get("volume", 100)
@@ -243,6 +244,19 @@ class OmniShuffle:
         """Background thread to update status line."""
         while self.running:
             self.spinner_idx += 1
+
+            # Handle MPRIS actions (thread-safe)
+            action = self._mpris_action
+            if action:
+                self._mpris_action = None
+                if action == "next":
+                    self.play_next()
+                elif action == "pause":
+                    self.toggle_pause()
+                elif action == "stop":
+                    self.player.stop()
+                elif action == "quit":
+                    self.running = False
 
             if self.current_track and not self._pause_status:
                 # Update position from player
@@ -731,10 +745,10 @@ class OmniShuffle:
         if MPRIS_AVAILABLE:
             self.mpris = MPRISService(
                 self.player,
-                next_callback=self.play_next,
-                pause_callback=self.toggle_pause,
-                stop_callback=self.player.stop,
-                quit_callback=lambda: setattr(self, "running", False)
+                next_callback=lambda: setattr(self, "_mpris_action", "next"),
+                pause_callback=lambda: setattr(self, "_mpris_action", "pause"),
+                stop_callback=lambda: setattr(self, "_mpris_action", "stop"),
+                quit_callback=lambda: setattr(self, "_mpris_action", "quit")
             )
             if self.mpris.start():
                 console.print("[green]\u2713[/green] MPRIS D-Bus interface active")
