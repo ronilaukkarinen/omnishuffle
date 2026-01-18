@@ -424,7 +424,7 @@ class OmniShuffle:
                 console.print("[green]✓[/green] Last.fm scrobbling enabled")
                 return
             error = getattr(self.scrobbler, '_last_error', 'unknown error')
-            if 'timeout' in error.lower() and attempt < 2:
+            if ('timeout' in error.lower() or 'timed out' in error.lower()) and attempt < 2:
                 console.print(f"[yellow]![/yellow] Last.fm timeout, retrying ({attempt + 2}/3)...")
                 time.sleep(3)
                 continue
