@@ -15,6 +15,7 @@ dependencies = [
     "httpx[socks]",
     "pylast",
     "pyobjc-framework-Cocoa; sys_platform == 'darwin'",
+    "dbus-next; sys_platform == 'linux'",
 ]
 
 [project.scripts]
