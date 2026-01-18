@@ -40,6 +40,7 @@ from omnishuffle.config import load_config, get_config_dir, add_banned, is_banne
 from omnishuffle.player import Player, Track
 from omnishuffle.sources import SpotifySource, PandoraSource, YouTubeSource, MusicSource
 from omnishuffle.scrobbler import Scrobbler
+from omnishuffle.mpris import MPRISService, MPRIS_AVAILABLE
 
 try:
     import pylast
@@ -98,6 +99,7 @@ class OmniShuffle:
         self._current_position: float = 0.0  # Updated by player callback
         self._status_first_print = True  # Reset on track change
         self._pause_status = False  # Pause status updates while printing messages
+        self.mpris: Optional[MPRISService] = None
 
         # Set initial volume from config
         initial_volume = self.config.get("general", {}).get("volume", 100)
@@ -351,6 +353,7 @@ class OmniShuffle:
                         sys.exit(1)
             else:
                 console.print("[red]✗[/red] Spotify not configured")
+                sys.exit(1)
 
         if "pandora" in enabled:
             sys.stdout.write("\033[33m→\033[0m Starting Tor for Pandora...")
@@ -363,13 +366,24 @@ class OmniShuffle:
                 console.print("[green]✓[/green] Pandora connected (via Tor)")
             else:
                 error = src.error_message or "unknown error"
-                console.print(f"[red]✗[/red] Pandora: {error}")
+                if "country" in error:
+                    console.print("[red]✗[/red] Pandora: not available in this country after 3 attempts, please try again")
+                else:
+                    console.print(f"[red]✗[/red] Pandora: {error}")
+                sys.exit(1)
 
         if "youtube" in enabled:
             src = YouTubeSource(self.config.get("youtube", {}))
             if src.is_configured():
                 self.sources.append(src)
                 console.print("[green]✓[/green] YouTube Music available")
+            else:
+                console.print("[red]✗[/red] YouTube Music not available")
+                sys.exit(1)
+
+        # Ensure proxy env vars are cleared before other services (Last.fm)
+        for var in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
+            os.environ.pop(var, None)
 
     def _init_scrobbler(self):
         """Initialize Last.fm scrobbler. Exits if Last.fm fails."""
@@ -388,12 +402,18 @@ class OmniShuffle:
             sys.exit(1)
 
         password_hash = pylast.md5(password)
-        self.scrobbler = Scrobbler(api_key, api_secret, username, password_hash)
 
-        if self.scrobbler.enabled:
-            console.print("[green]✓[/green] Last.fm scrobbling enabled")
-        else:
+        # Retry Last.fm connection up to 3 times on timeout
+        for attempt in range(3):
+            self.scrobbler = Scrobbler(api_key, api_secret, username, password_hash)
+            if self.scrobbler.enabled:
+                console.print("[green]✓[/green] Last.fm scrobbling enabled")
+                return
             error = getattr(self.scrobbler, '_last_error', 'unknown error')
+            if 'timeout' in error.lower() and attempt < 2:
+                console.print(f"[yellow]![/yellow] Last.fm timeout, retrying ({attempt + 2}/3)...")
+                time.sleep(3)
+                continue
             console.print(f"[red]✗[/red] Last.fm: {error}")
             sys.exit(1)
 
@@ -500,6 +520,11 @@ class OmniShuffle:
             self.current_scrobbled = False
             self.current_stats = {}
             self._current_position = 0.0
+
+            # Notify MPRIS clients
+            if self.mpris:
+                self.mpris.notify_track_changed()
+
             # Clear old status
             if not self._status_first_print:
                 sys.stdout.write("\033[2K\033[A\033[2K\r")
@@ -635,6 +660,8 @@ class OmniShuffle:
         """Toggle pause state."""
         self.player.pause()
         self.paused = self.player.paused
+        if self.mpris:
+            self.mpris.notify_playback_status_changed()
 
     def show_info(self):
         """Show detailed track info."""
@@ -699,6 +726,19 @@ class OmniShuffle:
             return
 
         self.running = True
+
+        # Start MPRIS service (Linux only)
+        if MPRIS_AVAILABLE:
+            self.mpris = MPRISService(
+                self.player,
+                next_callback=self.play_next,
+                pause_callback=self.toggle_pause,
+                stop_callback=self.player.stop,
+                quit_callback=lambda: setattr(self, "running", False)
+            )
+            if self.mpris.start():
+                console.print("[green]\u2713[/green] MPRIS D-Bus interface active")
+
         self.play_next()
 
         console.print("[dim]Press 'h' for help, 'q' to quit[/dim]")
@@ -728,8 +768,12 @@ class OmniShuffle:
                     self.ban_current()
                 elif key == '(':
                     self.player.volume_down()
+                    if self.mpris:
+                        self.mpris.notify_volume_changed()
                 elif key == ')':
                     self.player.volume_up()
+                    if self.mpris:
+                        self.mpris.notify_volume_changed()
                 elif key == 'i':
                     self.show_info()
                 elif key == 'h' or key == '?':
@@ -753,6 +797,8 @@ class OmniShuffle:
 
         finally:
             self.running = False
+            if self.mpris:
+                self.mpris.stop()
             self.player.shutdown()
             self._clear_status()
             console.print("[magenta]Goodbye![/magenta]")
