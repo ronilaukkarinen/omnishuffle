@@ -417,6 +417,10 @@ class OmniShuffle:
 
         password_hash = pylast.md5(password)
 
+        # Clear any proxy that might interfere with Last.fm
+        for var in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"]:
+            os.environ.pop(var, None)
+
         # Retry Last.fm connection up to 3 times on timeout
         for attempt in range(3):
             self.scrobbler = Scrobbler(api_key, api_secret, username, password_hash)
