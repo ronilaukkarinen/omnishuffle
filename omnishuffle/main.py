@@ -745,17 +745,17 @@ class OmniShuffle:
 
         self.running = True
 
-        # Start MPRIS service (Linux only)
-        if MPRIS_AVAILABLE:
-            self.mpris = MPRISService(
-                self.player,
-                next_callback=lambda: setattr(self, "_mpris_action", "next"),
-                pause_callback=lambda: setattr(self, "_mpris_action", "pause"),
-                stop_callback=lambda: setattr(self, "_mpris_action", "stop"),
-                quit_callback=lambda: setattr(self, "_mpris_action", "quit")
-            )
-            if self.mpris.start():
-                console.print("[green]\u2713[/green] MPRIS D-Bus interface active")
+        # MPRIS disabled for now - needs debugging
+        # if MPRIS_AVAILABLE:
+        #     self.mpris = MPRISService(
+        #         self.player,
+        #         next_callback=lambda: setattr(self, "_mpris_action", "next"),
+        #         pause_callback=lambda: setattr(self, "_mpris_action", "pause"),
+        #         stop_callback=lambda: setattr(self, "_mpris_action", "stop"),
+        #         quit_callback=lambda: setattr(self, "_mpris_action", "quit")
+        #     )
+        #     if self.mpris.start():
+        #         console.print("[green]\u2713[/green] MPRIS D-Bus interface active")
 
         self.play_next()
 

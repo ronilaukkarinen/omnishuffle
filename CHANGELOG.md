@@ -1,6 +1,5 @@
 ### 1.2.0: 2026-01-18
 
-* Add MPRIS D-Bus interface for Linux desktop media controls
 * Use dedicated Tor port 9150 to avoid conflicts with system Tor
 * Retry Pandora 3 times on geo-block, retry Last.fm 3 times on timeout
 * Exit if any enabled service fails to connect (Spotify, Pandora, YouTube, Last.fm)

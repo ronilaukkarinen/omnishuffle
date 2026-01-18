@@ -261,8 +261,11 @@ class MPRISService:
       self._loop.run_forever()
     except Exception as e:
       import sys
+      import traceback
       print(f"MPRIS error: {e}", file=sys.stderr)
+      traceback.print_exc()
     finally:
+      self._running = False
       self._loop.close()
 
   async def _setup_dbus(self):
