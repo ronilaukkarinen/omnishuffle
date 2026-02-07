@@ -189,8 +189,8 @@ class Player:
     def stop(self):
         """Stop playback."""
         self._using_spotify_connect = False
-        if self._spotify_source:
-            self._spotify_source.pause_playback()
+        if self._spotify_source and self._spotify_device_id:
+            self._spotify_source.pause_playback(self._spotify_device_id)
         try:
             self.mpv.stop()
         except Exception:
