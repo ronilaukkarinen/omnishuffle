@@ -1,3 +1,7 @@
+### 1.2.1: 2026-02-07
+
+* Fix Spotify not stopping on quit by passing `device_id` in stop()
+
 ### 1.2.0: 2026-01-18
 
 * Use dedicated Tor port 9150 to avoid conflicts with system Tor
