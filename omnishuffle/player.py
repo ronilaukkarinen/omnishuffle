@@ -68,11 +68,13 @@ class Player:
 
         @self.mpv.event_callback('end-file')
         def on_end_file(event):
-            # Only trigger callback if track ended naturally (EOF, not error/stop)
             if hasattr(event, 'data') and hasattr(event.data, 'reason'):
-                is_eof = event.data.reason == event.data.EOF
-                if is_eof and self._on_track_end and not self._loading:
-                    self._on_track_end()
+                reason = event.data.reason
+                is_eof = reason == event.data.EOF
+                is_error = reason == event.data.ERROR
+                if self._on_track_end and not self._loading:
+                    if is_eof or is_error:
+                        self._on_track_end()
 
     def set_spotify_source(self, source: "SpotifySource"):
         """Set the Spotify source for Connect playback."""

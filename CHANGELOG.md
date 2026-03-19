@@ -2,6 +2,7 @@
 
 * Auto-fix mpv/ffmpeg symbol mismatch on macOS by running `brew reinstall` when libmpv fails to load
 * Add mpv/ffmpeg sync check to install script for macOS
+* Fix Pandora/YouTube tracks stuck at 0:00 when stream URL fails to load
 
 ### 1.2.1: 2026-02-07
 
