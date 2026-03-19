@@ -364,6 +364,14 @@ Tor might have selected a non-US exit node. OmniShuffle retries automatically, b
 curl --socks5 127.0.0.1:9050 https://ipinfo.io/country
 ```
 
+### mpv fails to load (`Symbol not found: _av_base64_encode`)
+
+mpv and ffmpeg are out of sync after a Homebrew update. Rebuild mpv:
+
+```bash
+brew reinstall mpv
+```
+
 ### No audio output
 
 Verify mpv is working:

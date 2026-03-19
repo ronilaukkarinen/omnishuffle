@@ -61,6 +61,11 @@ install_deps() {
     macos)
       print_step "Installing via Homebrew..."
       brew install mpv ffmpeg tor pipx 2>/dev/null || brew upgrade mpv ffmpeg tor pipx 2>/dev/null || true
+      # Rebuild mpv against current ffmpeg to prevent symbol mismatch (e.g. _av_base64_encode)
+      if ! python3 -c "import ctypes; ctypes.CDLL('libmpv.dylib')" 2>/dev/null; then
+        print_step "Rebuilding mpv to match current ffmpeg..."
+        brew reinstall mpv 2>/dev/null || true
+      fi
       pipx ensurepath 2>/dev/null || true
       ;;
     arch)

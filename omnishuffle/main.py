@@ -37,7 +37,19 @@ from rich import box
 
 from omnishuffle import __version__
 from omnishuffle.config import load_config, get_config_dir, add_banned, is_banned
-from omnishuffle.player import Player, Track
+try:
+  from omnishuffle.player import Player, Track
+except OSError as e:
+  if "Symbol not found" in str(e) and platform.system() == "Darwin" and shutil.which("brew"):
+    print("mpv and ffmpeg are out of sync. Rebuilding...")
+    subprocess.run(["brew", "reinstall", "mpv", "ffmpeg"], check=False)
+    try:
+      from omnishuffle.player import Player, Track
+    except OSError:
+      print("Still broken after reinstall. Try: brew upgrade --fetch-HEAD mpv ffmpeg")
+      sys.exit(1)
+  else:
+    raise
 from omnishuffle.sources import SpotifySource, PandoraSource, YouTubeSource, MusicSource
 from omnishuffle.scrobbler import Scrobbler
 from omnishuffle.mpris import MPRISService, MPRIS_AVAILABLE

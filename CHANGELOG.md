@@ -1,3 +1,8 @@
+### 1.2.2: 19.3.2026
+
+* Auto-fix mpv/ffmpeg symbol mismatch on macOS by running `brew reinstall` when libmpv fails to load
+* Add mpv/ffmpeg sync check to install script for macOS
+
 ### 1.2.1: 2026-02-07
 
 * Fix Spotify not stopping on quit by passing `device_id` in stop()
