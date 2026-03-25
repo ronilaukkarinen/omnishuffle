@@ -38,13 +38,13 @@ from rich import box
 from omnishuffle import __version__
 from omnishuffle.config import load_config, get_config_dir, add_banned, is_banned
 try:
-  from omnishuffle.player import Player, Track
+  from omnishuffle.player import Player, Track, list_audio_devices
 except OSError as e:
   if "Symbol not found" in str(e) and platform.system() == "Darwin" and shutil.which("brew"):
     print("mpv and ffmpeg are out of sync. Rebuilding...")
     subprocess.run(["brew", "reinstall", "mpv", "ffmpeg"], check=False)
     try:
-      from omnishuffle.player import Player, Track
+      from omnishuffle.player import Player, Track, list_audio_devices
     except OSError:
       print("Still broken after reinstall. Try: brew upgrade --fetch-HEAD mpv ffmpeg")
       sys.exit(1)
@@ -89,9 +89,9 @@ SOURCE_COLORS = {
 class OmniShuffle:
     """Main application class."""
 
-    def __init__(self, source_filter: Optional[List[str]] = None):
+    def __init__(self, source_filter: Optional[List[str]] = None, audio_device: Optional[str] = None):
         self.config = load_config()
-        self.player = Player()
+        self.player = Player(audio_device=audio_device)
         self.sources: List[MusicSource] = []
         self.source_filter = source_filter  # Filter to specific sources
         self.queue: List[Track] = []
@@ -834,6 +834,34 @@ class OmniShuffle:
             console.print("[magenta]Goodbye![/magenta]")
 
 
+def _select_audio_device() -> Optional[str]:
+    """Prompt user to select an audio output device."""
+    devices = list_audio_devices()
+    if not devices:
+        return None
+
+    console.print("[bold magenta]Audio output devices:[/bold magenta]")
+    console.print(f"  [dim]0)[/dim] Auto (system default)")
+    for i, (dev_id, name) in enumerate(devices, 1):
+        console.print(f"  [dim]{i})[/dim] {name}")
+
+    console.print()
+    try:
+        sys.stdout.write("\033[36m?\033[0m Select device [0]: ")
+        sys.stdout.flush()
+        choice = input().strip()
+        if not choice or choice == "0":
+            return None
+        idx = int(choice)
+        if 1 <= idx <= len(devices):
+            selected = devices[idx - 1]
+            console.print(f"[green]>[/green] Using: {selected[1]}")
+            return selected[0]
+    except (ValueError, EOFError, KeyboardInterrupt):
+        pass
+    return None
+
+
 def main():
     """Entry point."""
     import argparse
@@ -841,6 +869,7 @@ def main():
     parser.add_argument("--spotify", action="store_true", help="Only play from Spotify")
     parser.add_argument("--pandora", action="store_true", help="Only play from Pandora")
     parser.add_argument("--youtube", action="store_true", help="Only play from YouTube")
+    parser.add_argument("--device", type=str, default=None, help="Audio device (coreaudio/... ID or number)")
     args = parser.parse_args()
 
     # Determine which sources to use
@@ -854,7 +883,12 @@ def main():
         if args.youtube:
             source_filter.append("youtube")
 
-    app = OmniShuffle(source_filter=source_filter)
+    # Audio device selection
+    audio_device = args.device
+    if audio_device is None:
+        audio_device = _select_audio_device()
+
+    app = OmniShuffle(source_filter=source_filter, audio_device=audio_device)
     app.run()
 
 

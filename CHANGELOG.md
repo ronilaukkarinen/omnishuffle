@@ -1,3 +1,8 @@
+### 1.3.0: 25.3.2026
+
+* Add audio output device selector at startup (AirPlay, external speakers, etc.)
+* Support `--device` flag to set audio device from command line
+
 ### 1.2.2: 19.3.2026
 
 * Auto-fix mpv/ffmpeg symbol mismatch on macOS by running `brew reinstall` when libmpv fails to load

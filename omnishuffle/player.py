@@ -1,10 +1,11 @@
 """MPV-based player with Spotify Connect support for Premium users."""
 
 import mpv
+import subprocess
 import time
 import threading
 from dataclasses import dataclass
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import Callable, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from omnishuffle.sources.spotify import SpotifySource
@@ -23,10 +24,34 @@ class Track:
     track_id: Optional[str] = None  # service-specific ID
 
 
+def list_audio_devices() -> List[Tuple[str, str]]:
+    """List available audio output devices via mpv."""
+    try:
+        result = subprocess.run(
+            ["mpv", "--audio-device=help"],
+            capture_output=True, text=True, timeout=5
+        )
+        devices = []
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("'") and "'" in line[1:]:
+                # Parse: 'coreaudio/BuiltInSpeakerDevice' (MacBook Pro Speakers)
+                end_quote = line.index("'", 1)
+                dev_id = line[1:end_quote]
+                name = line[end_quote+1:].strip().strip("()")
+                # Only show coreaudio devices (skip avfoundation duplicates and auto)
+                if dev_id.startswith("coreaudio/"):
+                    devices.append((dev_id, name))
+        return devices
+    except Exception:
+        return []
+
+
 class Player:
     """MPV player wrapper with Spotify Connect support for Premium users."""
 
-    def __init__(self):
+    def __init__(self, audio_device: Optional[str] = None):
+        self._audio_device = audio_device
         self._create_mpv()
         self.current_track: Optional[Track] = None
         self.paused = False
@@ -47,7 +72,7 @@ class Player:
 
     def _create_mpv(self):
         """Create a fresh MPV instance."""
-        self.mpv = mpv.MPV(
+        kwargs = dict(
             ytdl=True,
             video=False,
             terminal=False,
@@ -56,6 +81,11 @@ class Player:
             ytdl_format="bestaudio/best",
             volume=100,
         )
+        if self._audio_device:
+            kwargs["audio_device"] = self._audio_device
+            # AirPlay/wireless devices need a larger buffer to avoid losing initial audio
+            kwargs["audio_buffer"] = 0.5
+        self.mpv = mpv.MPV(**kwargs)
 
         @self.mpv.property_observer('time-pos')
         def on_time(name, value):
