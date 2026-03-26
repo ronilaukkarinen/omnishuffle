@@ -63,3 +63,4 @@ Config file: `~/.config/omnishuffle/config.json`
 - No Claude watermark in commits
 - No emojis in commits or code
 - Keep CHANGELOG.md date up to date when adding entries
+- Use ISO date format in CHANGELOG.md headings: `### x.y.z: yyyy-MM-dd`
