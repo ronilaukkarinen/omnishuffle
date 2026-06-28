@@ -88,6 +88,18 @@ omnishuffle
 
 The player will start shuffling music from all configured sources.
 
+### Command-line flags
+
+```bash
+omnishuffle --spotify          # Only play from Spotify
+omnishuffle --pandora          # Only play from Pandora
+omnishuffle --youtube          # Only play from YouTube
+omnishuffle --device <id>      # Set audio output device
+omnishuffle --list-songs       # Print the recommendation list and exit (no playback)
+```
+
+`--list-songs` (alias `--list`) outputs one track per line as `Artist - Title (Album)` on stdout, with all status messages on stderr, so it can be piped or redirected. Combine it with a source flag, e.g. `omnishuffle --list-songs --spotify`.
+
 ### Status display
 
 ```

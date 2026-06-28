@@ -1,3 +1,13 @@
+### 1.3.1: 2026-06-28
+
+* Auto-install spotifyd via the platform package manager when missing
+* Auto-create spotifyd config when missing
+* Migrate spotifyd credentials from the legacy location to the cache path spotifyd 0.4 reads
+* Run `spotifyd authenticate` automatically when the Spotify Connect device does not appear (spotifyd 0.4 dropped password auth)
+* Restart spotifyd after authenticating or migrating credentials so it logs in instead of staying in zeroconf discovery mode
+* Poll for the Spotify Connect device after starting spotifyd instead of waiting a fixed 2 seconds
+* Add `--list-songs` flag to print the recommendation list as `Artist - Title (Album)` and exit
+
 ### 1.3.0: 2026-03-25
 
 * Add audio output device selector at startup (AirPlay, external speakers, etc.)

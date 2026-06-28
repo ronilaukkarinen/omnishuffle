@@ -1,6 +1,6 @@
 [project]
 name = "omnishuffle"
-version = "1.3.0"
+version = "1.3.1"
 description = "Unified music shuffler for Spotify, Pandora, and YouTube Music"
 requires-python = ">=3.11"
 dependencies = [

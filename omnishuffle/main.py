@@ -89,9 +89,11 @@ SOURCE_COLORS = {
 class OmniShuffle:
     """Main application class."""
 
-    def __init__(self, source_filter: Optional[List[str]] = None, audio_device: Optional[str] = None):
+    def __init__(self, source_filter: Optional[List[str]] = None, audio_device: Optional[str] = None,
+                 list_only: bool = False):
         self.config = load_config()
-        self.player = Player(audio_device=audio_device)
+        self.list_only = list_only  # Metadata-only mode: no player, scrobbler, or spotifyd
+        self.player = None if list_only else Player(audio_device=audio_device)
         self.sources: List[MusicSource] = []
         self.source_filter = source_filter  # Filter to specific sources
         self.queue: List[Track] = []
@@ -115,12 +117,14 @@ class OmniShuffle:
         self._mpris_action: Optional[str] = None  # Thread-safe action from MPRIS
 
         # Set initial volume from config
-        initial_volume = self.config.get("general", {}).get("volume", 100)
-        self.player.set_volume(initial_volume)
+        if not list_only:
+            initial_volume = self.config.get("general", {}).get("volume", 100)
+            self.player.set_volume(initial_volume)
 
         self._init_sources()
-        self._init_scrobbler()
-        self._setup_callbacks()
+        if not list_only:
+            self._init_scrobbler()
+            self._setup_callbacks()
 
     def _clear_status(self):
         """Clear the status lines and reset for fresh print."""
@@ -307,48 +311,174 @@ class OmniShuffle:
         # Don't wait - continue with other sources, Spotify tracks will be skipped
 
     def _ensure_spotifyd_running(self):
-        """Ensure spotifyd is running for Spotify Connect playback."""
-        # Check if spotifyd is already running
+        """Ensure spotifyd is installed, authenticated, and running for Spotify Connect."""
+        if not shutil.which("spotifyd"):
+            self._install_spotifyd()
+            if not shutil.which("spotifyd"):
+                console.print("[yellow]![/yellow] Could not install spotifyd automatically")
+                return
+
+        self._ensure_spotifyd_config()
+
+        had_creds = self._spotifyd_has_credentials()
+        self._migrate_spotifyd_credentials()
+        has_creds = self._spotifyd_has_credentials()
+
+        if not self._spotifyd_is_running():
+            self._start_spotifyd()
+        elif has_creds and not had_creds:
+            # spotifyd was running in zeroconf mode; restart so it logs in with the new credentials
+            self._start_spotifyd(restart=True)
+
+    def _spotifyd_cache_dir(self) -> str:
+        """Cache directory where spotifyd 0.4 stores credentials and audio cache."""
+        return os.path.expanduser("~/.config/spotifyd/cache")
+
+    def _spotifyd_has_credentials(self) -> bool:
+        """spotifyd 0.4 reads cached login credentials from <cache_path>/credentials.json."""
+        return os.path.exists(os.path.join(self._spotifyd_cache_dir(), "credentials.json"))
+
+    def _migrate_spotifyd_credentials(self):
+        """Copy credentials from the pre-0.4 location into the cache path spotifyd 0.4 reads.
+
+        Non-interactive. spotifyd <= 0.3 stored credentials at ~/.config/spotifyd/credentials.json;
+        0.4 reads them from <cache_path>/credentials.json instead.
+        """
+        cache_dir = self._spotifyd_cache_dir()
+        cache_creds = os.path.join(cache_dir, "credentials.json")
+        if os.path.exists(cache_creds):
+            return
+
+        legacy_creds = os.path.expanduser("~/.config/spotifyd/credentials.json")
+        if not os.path.exists(legacy_creds):
+            return
+
         try:
-            result = subprocess.run(
-                ["pgrep", "-x", "spotifyd"],
-                capture_output=True,
-                text=True
-            )
-            if result.returncode == 0:
-                return  # Already running
+            os.makedirs(cache_dir, exist_ok=True)
+            shutil.copy(legacy_creds, cache_creds)
+            console.print("[green]✓[/green] Migrated spotifyd credentials")
         except Exception:
             pass
 
-        # Try to start spotifyd
+    def _authenticate_spotifyd(self) -> bool:
+        """Run spotifyd's one-time OAuth login (opens a browser) and restart the daemon.
+
+        spotifyd 0.4 dropped username/password auth, so this browser login is the only way to
+        obtain credentials. Called when the device never appears, which means spotifyd has no
+        usable login (missing or stale credentials). Returns True if credentials were obtained.
+        """
+        cache_dir = self._spotifyd_cache_dir()
+        os.makedirs(cache_dir, exist_ok=True)
+        console.print("[yellow]→[/yellow] Spotify login needed, opening browser for one-time authentication...")
+        try:
+            subprocess.run(["spotifyd", "authenticate", "--cache-path", cache_dir], check=False)
+        except Exception:
+            return False
+
+        if not self._spotifyd_has_credentials():
+            return False
+        self._start_spotifyd(restart=True)
+        return True
+
+    def _spotifyd_is_running(self) -> bool:
+        """Check if a spotifyd process is already running."""
+        try:
+            return subprocess.run(
+                ["pgrep", "-x", "spotifyd"], capture_output=True
+            ).returncode == 0
+        except Exception:
+            return False
+
+    def _install_spotifyd(self):
+        """Install spotifyd using the platform package manager."""
+        console.print("[yellow]→[/yellow] spotifyd not found, installing...")
+        try:
+            if platform.system() == "Darwin":
+                if shutil.which("brew"):
+                    subprocess.run(["brew", "install", "spotifyd"], check=False)
+            elif shutil.which("yay"):
+                subprocess.run(["yay", "-S", "--noconfirm", "spotifyd"], check=False)
+            elif shutil.which("paru"):
+                subprocess.run(["paru", "-S", "--noconfirm", "spotifyd"], check=False)
+            elif shutil.which("pacman"):
+                subprocess.run(["sudo", "pacman", "-S", "--noconfirm", "spotifyd"], check=False)
+            else:
+                console.print(
+                    "[yellow]![/yellow] No supported package manager found. "
+                    "Install spotifyd from https://github.com/Spotifyd/spotifyd/releases"
+                )
+        except Exception:
+            pass
+
+    def _ensure_spotifyd_config(self):
+        """Create spotifyd.conf if missing."""
+        conf_dir = os.path.expanduser("~/.config/spotifyd")
+        conf_path = os.path.join(conf_dir, "spotifyd.conf")
+        if os.path.exists(conf_path):
+            return
+
+        os.makedirs(os.path.join(conf_dir, "cache"), exist_ok=True)
+
+        is_mac = platform.system() == "Darwin"
+        backend = "portaudio" if is_mac else "pulseaudio"
+        device_name = "OmniShuffle-Mac" if is_mac else "OmniShuffle"
+
+        lines = [
+            "[global]",
+            f'device_name = "{device_name}"',
+            'device_type = "computer"',
+            f'backend = "{backend}"',
+            "bitrate = 320",
+            f'cache_path = "{os.path.join(conf_dir, "cache")}"',
+        ]
+
+        try:
+            with open(conf_path, "w") as f:
+                f.write("\n".join(lines) + "\n")
+            console.print("[green]✓[/green] Created spotifyd config")
+        except Exception:
+            pass
+
+    def _start_spotifyd(self, restart: bool = False):
+        """Start (or restart) spotifyd via the platform service manager."""
         config_path = os.path.expanduser("~/.config/spotifyd/spotifyd.conf")
         if not os.path.exists(config_path):
-            return  # No config, can't start
+            return
 
         try:
             if platform.system() == "Darwin":
-                # macOS: start with config path
-                subprocess.Popen(
-                    ["spotifyd", "--config-path", config_path],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
-            else:
-                # Linux: use systemctl if available, otherwise direct start
-                result = subprocess.run(
-                    ["systemctl", "--user", "is-active", "spotifyd"],
-                    capture_output=True,
-                    text=True
-                )
-                if result.returncode != 0:
-                    subprocess.run(
-                        ["systemctl", "--user", "start", "spotifyd"],
-                        capture_output=True
+                if shutil.which("brew"):
+                    action = "restart" if restart else "start"
+                    subprocess.run(["brew", "services", action, "spotifyd"], capture_output=True)
+                else:
+                    subprocess.Popen(
+                        ["spotifyd", "--config-path", config_path],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
                     )
-            # Give it time to register with Spotify
-            time.sleep(2)
+            else:
+                started = False
+                if shutil.which("systemctl"):
+                    cmd = (
+                        ["systemctl", "--user", "restart", "spotifyd"] if restart
+                        else ["systemctl", "--user", "enable", "--now", "spotifyd"]
+                    )
+                    started = subprocess.run(cmd, capture_output=True).returncode == 0
+                if not started:
+                    subprocess.Popen(
+                        ["spotifyd", "--no-daemon", "--config-path", config_path],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
         except Exception:
             pass
+
+    def _wait_for_connect_device(self, src, timeout: int = 15):
+        """Poll for the Spotify Connect device to register, up to timeout seconds."""
+        deadline = time.time() + timeout
+        device = src.get_connect_device()
+        while not device and time.time() < deadline:
+            time.sleep(1)
+            device = src.get_connect_device()
+        return device
 
     def _init_sources(self):
         """Initialize enabled music sources."""
@@ -359,24 +489,35 @@ class OmniShuffle:
             enabled = [s for s in enabled if s in self.source_filter]
 
         if "spotify" in enabled:
-            self._ensure_spotifyd_running()
+            if not self.list_only:
+                self._ensure_spotifyd_running()
             src = SpotifySource(self.config.get("spotify", {}))
             if src.is_configured():
                 self.sources.append(src)
-                # Set up Spotify source for player
-                self.player.set_spotify_source(src)
-                # Check streaming method
-                if src.has_direct_streaming:
-                    console.print("[green]✓[/green] Spotify connected (320kbps via librespot)")
+                if self.list_only:
+                    # Listing only needs Web API metadata, not playback
+                    console.print("[green]✓[/green] Spotify ready (metadata)")
                 else:
-                    device = src.get_connect_device()
-                    if device:
-                        console.print(f"[green]✓[/green] Spotify connected (320kbps via {device.get('name', 'Connect')})")
+                    # Set up Spotify source for player
+                    self.player.set_spotify_source(src)
+                    # Check streaming method
+                    if src.has_direct_streaming:
+                        console.print("[green]✓[/green] Spotify connected (320kbps via librespot)")
                     else:
-                        import platform
-                        expected = "OmniShuffle-Mac" if platform.system() == "Darwin" else "OmniShuffle"
-                        console.print(f"[red]✗[/red] Spotify device '{expected}' not found. Is spotifyd running?")
-                        sys.exit(1)
+                        # Wait for the device; skip the wait entirely if there are no credentials yet
+                        have_creds = self._spotifyd_has_credentials()
+                        device = self._wait_for_connect_device(src, timeout=15 if have_creds else 0)
+                        if not device and shutil.which("spotifyd"):
+                            # No device almost always means spotifyd is not logged in (missing or stale
+                            # credentials); authenticate and retry rather than giving up
+                            if self._authenticate_spotifyd():
+                                device = self._wait_for_connect_device(src)
+                        if device:
+                            console.print(f"[green]✓[/green] Spotify connected (320kbps via {device.get('name', 'Connect')})")
+                        else:
+                            expected = "OmniShuffle-Mac" if platform.system() == "Darwin" else "OmniShuffle"
+                            console.print(f"[red]✗[/red] Spotify device '{expected}' not found after authentication")
+                            sys.exit(1)
             else:
                 console.print("[red]✗[/red] Spotify not configured")
                 sys.exit(1)
@@ -870,6 +1011,8 @@ def main():
     parser.add_argument("--pandora", action="store_true", help="Only play from Pandora")
     parser.add_argument("--youtube", action="store_true", help="Only play from YouTube")
     parser.add_argument("--device", type=str, default=None, help="Audio device (coreaudio/... ID or number)")
+    parser.add_argument("--list-songs", "--list", action="store_true", dest="list_songs",
+                        help="Print the recommendation list (Artist - Title (Album)) and exit")
     args = parser.parse_args()
 
     # Determine which sources to use
@@ -883,6 +1026,10 @@ def main():
         if args.youtube:
             source_filter.append("youtube")
 
+    if args.list_songs:
+        _list_songs(source_filter)
+        return
+
     # Audio device selection
     audio_device = args.device
     if audio_device is None:
@@ -890,6 +1037,36 @@ def main():
 
     app = OmniShuffle(source_filter=source_filter, audio_device=audio_device)
     app.run()
+
+
+def _list_songs(source_filter: Optional[List[str]]) -> None:
+    """Build the recommendation queue and print it as 'Artist - Title (Album)' to stdout.
+
+    All status/progress output is routed to stderr so stdout holds only the song list.
+    """
+    global console
+    console = Console(stderr=True)
+
+    # Route stray progress writes (loading spinner, Tor message) to stderr too
+    real_stdout = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        app = OmniShuffle(source_filter=source_filter, list_only=True)
+        if not app.sources:
+            return
+        mode = app.config.get("general", {}).get("default_mode", "shuffle")
+        app.load_queue(mode)
+        lines = []
+        for track in app.queue:
+            line = f"{track.artist} - {track.title}"
+            if track.album:
+                line += f" ({track.album})"
+            lines.append(line)
+    finally:
+        sys.stdout = real_stdout
+
+    for line in lines:
+        print(line)
 
 
 if __name__ == "__main__":
